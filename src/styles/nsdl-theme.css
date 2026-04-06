@@ -1,0 +1,359 @@
+/* styles/nsdl-theme.css */
+@import "tailwindcss";
+
+/* NSDL Design Tokens */
+:root {
+  /* Primary Colors */
+  --nsdl-primary: #8e211b;
+  --nsdl-primary-light: #a64d4e;
+  --nsdl-primary-lighter: #c58c84;
+  --nsdl-primary-lightest: #e8beb5;
+
+  /* Secondary Colors */
+  --nsdl-secondary: #eeb52a;
+  --nsdl-secondary-alt: #f1c854;
+  --nsdl-accent: #fc037d;
+  --nsdl-accent-light: #f5cda2;
+  --nsdl-accent-lightest: #fdf0cf;
+
+  /* Gray Colors */
+  --nsdl-gray-darkest: #383838;
+  --nsdl-gray-dark: #52555d;
+  --nsdl-gray: #858a93;
+  --nsdl-gray-light: #878dc7;
+  --nsdl-gray-lightest: #e9ecf1;
+
+  /* Brand Orange (new primary per Figma) */
+  --nsdl-orange: #ff9800;
+  --nsdl-orange-dark: #8b5000;
+  --nsdl-orange-light: #fff8ee;
+  --nsdl-gradient-brand: linear-gradient(39.34deg, #8b5000 0%, #ff9800 100%);
+  --nsdl-gradient-brand-h: linear-gradient(
+    269.95deg,
+    #ff9800 46.66%,
+    #8b5000 56.86%
+  );
+
+  /* Gradients */
+  --nsdl-gradient-primary: linear-gradient(
+    135deg,
+    var(--nsdl-primary) 0%,
+    var(--nsdl-primary-light) 100%
+  );
+  --nsdl-gradient-secondary: linear-gradient(
+    135deg,
+    var(--nsdl-secondary) 0%,
+    var(--nsdl-accent-light) 100%
+  );
+}
+
+/* Custom NSDL Typography */
+@theme {
+  --font-archivo: "Archivo", sans-serif;
+  --font-roboto: "Roboto Flex", sans-serif;
+}
+
+/* NSDL Typography Classes */
+.nsdl-heading-1 {
+  font-family: var(--font-archivo);
+  font-size: 48px;
+  line-height: 52px;
+  font-weight: 700;
+}
+
+.nsdl-heading-2 {
+  font-family: var(--font-archivo);
+  font-size: 36px;
+  line-height: 48px;
+  font-weight: 600;
+}
+
+.nsdl-heading-3 {
+  font-family: var(--font-roboto);
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.nsdl-body {
+  font-family: var(--font-roboto);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+}
+
+.nsdl-body-bold {
+  font-family: var(--font-roboto);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+/* NSDL Button Styles */
+.nsdl-btn-primary {
+  background: var(--nsdl-primary);
+  color: white;
+  padding: 18px 38px;
+  border-radius: 8px;
+  font-family: var(--font-roboto);
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.nsdl-btn-primary:hover {
+  background: var(--nsdl-primary-light);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(142, 33, 27, 0.3);
+}
+
+.nsdl-btn-secondary {
+  background: var(--nsdl-secondary);
+  color: var(--nsdl-gray-darkest);
+  padding: 18px 38px;
+  border-radius: 8px;
+  font-family: var(--font-roboto);
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.nsdl-btn-secondary:hover {
+  background: var(--nsdl-secondary-alt);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(238, 181, 42, 0.3);
+}
+
+/* Form Input Styles */
+.nsdl-input {
+  padding: 20px 21px;
+  border: 2px solid var(--nsdl-gray-lightest);
+  border-radius: 8px;
+  font-family: var(--font-roboto);
+  font-size: 16px;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.nsdl-input:focus {
+  outline: none;
+  border-color: var(--nsdl-primary);
+  box-shadow: 0 0 0 3px rgba(142, 33, 27, 0.1);
+}
+
+.nsdl-label {
+  font-family: var(--font-roboto);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--nsdl-gray-darkest);
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* Card Styles */
+.nsdl-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--nsdl-gray-lightest);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.nsdl-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Tab Styles */
+.nsdl-tab {
+  padding: 18px 38px;
+  font-family: var(--font-roboto);
+  font-size: 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.nsdl-tab-active {
+  color: var(--nsdl-primary);
+  border-bottom-color: var(--nsdl-primary);
+  background: var(--nsdl-primary-lightest);
+}
+
+.nsdl-tab:hover:not(.nsdl-tab-active) {
+  background: var(--nsdl-gray-lightest);
+  color: var(--nsdl-primary);
+}
+
+/* Status Badges */
+.nsdl-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-family: var(--font-roboto);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nsdl-badge-pending {
+  background: var(--nsdl-accent-lightest);
+  color: var(--nsdl-accent);
+  border: 1px solid var(--nsdl-accent-light);
+}
+
+.nsdl-badge-approved {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.nsdl-badge-rejected {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* Hero Banner Styles */
+.nsdl-hero {
+  background: var(--nsdl-gradient-primary);
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.nsdl-hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100%;
+  background: var(--nsdl-primary-lightest);
+  opacity: 0.1;
+  clip-path: polygon(25% 0%, 100% 0%, 100% 100%, 0% 100%);
+}
+
+/* ============================================
+   ANIMATIONS & TRANSITIONS
+   ============================================ */
+
+/* Slide In Animation */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Slide Up Animation */
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Fade In Animation */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Pulse Animation */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Spin Animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Bounce Animation */
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* ============================================
+   ANIMATION UTILITY CLASSES
+   ============================================ */
+
+/* Slide In */
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+/* Slide Up */
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Fade In */
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Pulse */
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Spin */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Bounce */
+.animate-bounce {
+  animation: bounce 0.5s ease-in-out infinite;
+}
+
+.pagination-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+  color: #9ca3af;
+  border-color: #e5e7eb;
+}
+
+.pagination-disabled:hover {
+  background-color: #f9fafb;
+  color: #9ca3af;
+}

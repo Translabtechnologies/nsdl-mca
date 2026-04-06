@@ -1,0 +1,40 @@
+/* index.css */
+@import "./styles/nsdl-theme.css";
+@import "tailwindcss";
+
+/* Base styles with NSDL theme */
+body {
+  font-family: "Roboto Flex", sans-serif;
+  background-color: #f8fafc;
+  color: #383838;
+  margin: 0;
+  padding: 0;
+}
+
+/* Ensure all headings use Archivo */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Archivo", sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--nsdl-primary-light);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--nsdl-primary);
+}
