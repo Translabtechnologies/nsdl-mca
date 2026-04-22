@@ -1,4493 +1,3 @@
-// import React, { useState, useEffect, useCallback, useRef } from "react";
-
-// const API_BASE_URL =
-//   import.meta.env.VITE_API_BASE_URL || "http://localhost:3003";
-
-// // --- TYPE DEFINITIONS ---
-// interface AuthenticationDetails {
-//   username: string;
-//   password?: string;
-// }
-
-// interface DpDetail {
-//   id: string;
-//   dp_name: string;
-//   email_id: string;
-//   ip_address: string;
-//   callback_url: string;
-//   authentication_details: AuthenticationDetails;
-//   rsa_public_key?: string;
-//   cert_serial_number?: string;
-//   certificate_file?: string;
-//   cm_bp_id?: string;
-//   segment?: string;
-//   exchange_code?: string;
-//   business_lead_name?: string;
-//   technical_lead_name?: string;
-//   rsa_key_status: "approved" | "pending" | "rejected" | "not approved";
-//   status: "approved" | "pending" | "rejected";
-//   environment: string;
-//   requestor_id?: string | null;
-//   created_at: string;
-//   updated_at: string;
-// }
-
-// // --- PAGINATION TYPES ---
-// interface PaginationInfo {
-//   totalRecords: number;
-//   totalPages: number;
-//   currentPage: number;
-//   limit: number;
-// }
-
-// interface PaginatedApiResponse<T> {
-//   success: boolean;
-//   message: string;
-//   data: {
-//     data: T[];
-//     pagination: PaginationInfo;
-//   };
-// }
-
-// // --- ERROR HANDLING TYPES ---
-// interface AppError {
-//   id?: string;
-//   type: "network" | "validation" | "api" | "timeout" | "auth" | "unknown";
-//   message: string;
-//   severity: "low" | "medium" | "high" | "critical";
-//   timestamp: string;
-//   retryable: boolean;
-//   details?: Record<string, unknown>;
-//   action?: "retry" | "refresh" | "contact_support" | "none";
-// }
-
-// // --- TOAST TYPES ---
-// interface ToastProps {
-//   id: string;
-//   message: string;
-//   type: "success" | "error" | "warning" | "info";
-//   duration?: number;
-//   onClose: (id: string) => void;
-// }
-
-// // --- API CONFIGURATION ---
-// const BACKEND_API_URL_UAT = `${API_BASE_URL}/v1/api/dp`;
-// const BACKEND_API_URL_STAGING = `${API_BASE_URL}/v1/api/dp-staging`;
-
-// // --- DEBOUNCE UTILITY ---
-// const debounce = <T extends (...args: any[]) => any>(
-//   func: T,
-//   wait: number
-// ): ((...args: Parameters<T>) => void) => {
-//   let timeout: NodeJS.Timeout | null = null;
-
-//   return (...args: Parameters<T>) => {
-//     if (timeout) clearTimeout(timeout);
-//     timeout = setTimeout(() => func(...args), wait);
-//   };
-// };
-
-// // --- ENHANCED API WRAPPER ---
-// const apiCall = async <T,>(
-//   url: string,
-//   options: RequestInit = {}
-// ): Promise<{ data: T; ok: true } | { error: AppError; ok: false }> => {
-//   const controller = new AbortController();
-//   const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-//   try {
-//     const response = await fetch(url, {
-//       ...options,
-//       signal: controller.signal,
-//       headers: {
-//         "Content-Type": "application/json",
-//         ...options.headers,
-//       },
-//     });
-
-//     clearTimeout(timeoutId);
-
-//     if (!response.ok) {
-//       const errorText = await response.text();
-//       let parsedError = { message: errorText };
-
-//       try {
-//         parsedError = JSON.parse(errorText) as { message: string };
-//       } catch {
-//         // Keep text as is
-//       }
-
-//       return {
-//         ok: false,
-//         error: {
-//           type: "api",
-//           message: parsedError.message || `HTTP ${response.status}`,
-//           severity: response.status >= 500 ? "high" : "medium",
-//           retryable: response.status >= 500,
-//           timestamp: new Date().toISOString(),
-//           action:
-//             response.status === 401
-//               ? "auth"
-//               : response.status >= 500
-//               ? "retry"
-//               : "none",
-//           details: {
-//             statusCode: response.status,
-//             endpoint: url,
-//             method: options.method || "GET",
-//           },
-//         },
-//       };
-//     }
-
-//     const data = (await response.json()) as T;
-//     return { ok: true, data };
-//   } catch (error) {
-//     clearTimeout(timeoutId);
-
-//     let errorType: AppError["type"] = "unknown";
-//     let message = "An unexpected error occurred";
-//     let retryable = false;
-
-//     if (error instanceof DOMException && error.name === "AbortError") {
-//       errorType = "timeout";
-//       message = "Request timed out. Please check your connection.";
-//       retryable = true;
-//     } else if (
-//       error instanceof TypeError &&
-//       error.message.includes("Failed to fetch")
-//     ) {
-//       errorType = "network";
-//       message = "Network error. Please check your internet connection.";
-//       retryable = true;
-//     } else if (error instanceof Error) {
-//       message = error.message;
-//     }
-
-//     return {
-//       ok: false,
-//       error: {
-//         type: errorType,
-//         message,
-//         severity: "high",
-//         retryable,
-//         timestamp: new Date().toISOString(),
-//         action: retryable ? "retry" : "contact_support",
-//         details: { originalError: error },
-//       },
-//     };
-//   }
-// };
-
-// // --- HELPER FUNCTIONS ---
-// const normalizeStatus = (status: string): string => status.toLowerCase();
-
-// const formatStatus = (status: string): string => {
-//   return status.charAt(0).toUpperCase() + status.slice(1);
-// };
-
-// interface RawDpData {
-//   id?: string;
-//   dp_name?: string;
-//   ip_address?: string;
-//   callback_url?: string;
-//   email_id?: string;
-//   authentication_details?: AuthenticationDetails;
-//   rsa_public_key?: string;
-//   cert_serial_number?: string;
-//   certificate_file?: string;
-//   cm_bp_id?: string;
-//   segment?: string;
-//   exchange_code?: string;
-//   business_lead_name?: string;
-//   technical_lead_name?: string;
-//   rsa_key_status?: string;
-//   status?: string;
-//   requestor_id?: string | null;
-//   created_at?: string;
-//   updated_at?: string;
-// }
-
-// const normalizeDpDetails = (
-//   rawDetails: unknown,
-//   environment: string
-// ): DpDetail[] => {
-//   if (!Array.isArray(rawDetails)) {
-//     console.warn(`Expected array for DP details, got:`, rawDetails);
-//     return [];
-//   }
-
-//   return rawDetails
-//     .filter(
-//       (dp: unknown): dp is RawDpData =>
-//         dp !== null &&
-//         typeof dp === "object" &&
-//         "id" in dp &&
-//         typeof (dp as RawDpData).id === "string"
-//     )
-//     .map((dp: RawDpData) => ({
-//       id: dp.id || "",
-//       dp_name: dp.dp_name || "",
-//       ip_address: dp.ip_address || "",
-//       callback_url: dp.callback_url || "",
-//       email_id: dp.email_id || "",
-//       authentication_details: dp.authentication_details || {
-//         username: "",
-//         password: "",
-//       },
-//       rsa_public_key: dp.rsa_public_key,
-//       cert_serial_number: dp.cert_serial_number,
-//       certificate_file: dp.certificate_file,
-//       cm_bp_id: dp.cm_bp_id,
-//       segment: dp.segment,
-//       exchange_code: dp.exchange_code,
-//       business_lead_name: dp.business_lead_name,
-//       technical_lead_name: dp.technical_lead_name,
-//       rsa_key_status: normalizeStatus(
-//         dp.rsa_key_status || "pending"
-//       ) as DpDetail["rsa_key_status"],
-//       status: normalizeStatus(
-//         dp.status || dp.rsa_key_status || "pending"
-//       ) as DpDetail["status"],
-//       environment: environment,
-//       requestor_id: dp.requestor_id,
-//       created_at: dp.created_at || new Date().toISOString(),
-//       updated_at: dp.updated_at || new Date().toISOString(),
-//     }));
-// };
-
-// // --- API CALLS WITH PAGINATION & SEARCH ---
-// interface FetchDpOptions {
-//   environment: string;
-//   status?: string;
-//   page?: number;
-//   limit?: number;
-//   searchTerm?: string;
-// }
-
-// const fetchDpDetailsWithPagination = async (
-//   options: FetchDpOptions
-// ): Promise<
-//   { data: DpDetail[]; pagination: PaginationInfo } | { error: AppError }
-// > => {
-//   const {
-//     environment = "UAT",
-//     status,
-//     page = 1,
-//     limit = 10,
-//     searchTerm,
-//   } = options;
-
-//   try {
-//     const baseUrl =
-//       environment.toUpperCase() === "UAT"
-//         ? `${API_BASE_URL}/v1/api/dp`
-//         : `${API_BASE_URL}/v1/api/dp-staging`;
-
-//     const params = new URLSearchParams();
-
-//     if (status && status !== "all") {
-//       params.append("status", status.toUpperCase());
-//     }
-
-//     if (searchTerm?.trim()) {
-//       params.append("search", searchTerm.trim());
-//     }
-
-//     params.append("page", page.toString());
-//     params.append("limit", limit.toString());
-
-//     const url = `${baseUrl}?${params.toString()}`;
-//     const result = await apiCall<PaginatedApiResponse<unknown>>(url);
-
-//     if (!result.ok) {
-//       console.error(`Failed to fetch ${environment} DP details:`, result.error);
-//       return { error: result.error };
-//     }
-
-//     const responseData = result.data;
-
-//     if (!responseData?.data) {
-//       console.error(`Invalid response from ${url}:`, responseData);
-//       return {
-//         error: {
-//           type: "api",
-//           message: "Invalid response from server",
-//           severity: "medium",
-//           retryable: true,
-//           timestamp: new Date().toISOString(),
-//           action: "retry",
-//         },
-//       };
-//     }
-
-//     const pagination = responseData.data.pagination || {
-//       totalRecords: 0,
-//       totalPages: 0,
-//       currentPage: page,
-//       limit: limit,
-//     };
-
-//     let rawDetails: unknown = [];
-
-//     if (Array.isArray(responseData.data.data)) {
-//       rawDetails = responseData.data.data;
-//     } else if (Array.isArray(responseData.data)) {
-//       rawDetails = responseData.data;
-//     } else {
-//       console.warn(`Unexpected data structure from ${url}:`, responseData.data);
-//       return {
-//         data: [],
-//         pagination: {
-//           totalRecords: 0,
-//           totalPages: 0,
-//           currentPage: page,
-//           limit: limit,
-//         },
-//       };
-//     }
-
-//     const dpDetails = normalizeDpDetails(rawDetails, environment);
-
-//     return { data: dpDetails, pagination };
-//   } catch (error) {
-//     console.error("Error fetching DP details with pagination:", error);
-//     return {
-//       error: {
-//         type: "network",
-//         message: "Failed to fetch DP details",
-//         severity: "high",
-//         retryable: true,
-//         timestamp: new Date().toISOString(),
-//         action: "retry",
-//       },
-//     };
-//   }
-// };
-
-// const approveDp = async (
-//   dpId: string,
-//   environment: string = "UAT"
-// ): Promise<{ success: boolean; error?: AppError }> => {
-//   const approveUrl = `${API_BASE_URL}/v1/api/dp/approve/${dpId}`;
-
-//   const requestBody = {
-//     status: "APPROVED",
-//     environment: environment.toUpperCase(),
-//   };
-
-//   const result = await apiCall<{
-//     success: boolean;
-//     message?: string;
-//     data?: any;
-//   }>(approveUrl, {
-//     method: "POST",
-//     body: JSON.stringify(requestBody),
-//   });
-
-//   if (!result.ok) {
-//     return { success: false, error: result.error };
-//   }
-
-//   if (!result.data.success) {
-//     return {
-//       success: false,
-//       error: {
-//         type: "api",
-//         message: result.data.message || "Failed to approve DP",
-//         severity: "medium",
-//         retryable: true,
-//         timestamp: new Date().toISOString(),
-//         action: "retry",
-//       },
-//     };
-//   }
-
-//   return { success: true };
-// };
-
-// const rejectDp = async (
-//   dpId: string,
-//   environment: string = "UAT"
-// ): Promise<{ success: boolean; error?: AppError }> => {
-//   const rejectUrl = `${API_BASE_URL}/v1/api/dp/approve/${dpId}`;
-
-//   const requestBody = {
-//     status: "REJECTED",
-//     environment: environment.toUpperCase(),
-//   };
-
-//   const result = await apiCall<{
-//     success: boolean;
-//     message?: string;
-//     data?: any;
-//   }>(rejectUrl, {
-//     method: "POST",
-//     body: JSON.stringify(requestBody),
-//   });
-
-//   if (!result.ok) {
-//     return { success: false, error: result.error };
-//   }
-
-//   if (!result.data.success) {
-//     return {
-//       success: false,
-//       error: {
-//         type: "api",
-//         message: result.data.message || "Failed to reject DP",
-//         severity: "medium",
-//         retryable: true,
-//         timestamp: new Date().toISOString(),
-//         action: "retry",
-//       },
-//     };
-//   }
-
-//   return { success: true };
-// };
-
-// // --- ICON COMPONENTS ---
-// const CheckIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M5 13l4 4L19 7"
-//     />
-//   </svg>
-// );
-
-// const XIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M6 18L18 6M6 6l12 12"
-//     />
-//   </svg>
-// );
-
-// const EyeIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-//     />
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-//     />
-//   </svg>
-// );
-
-// const ShieldIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-//     />
-//   </svg>
-// );
-
-// const RefreshIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-//     />
-//   </svg>
-// );
-
-// const ServerIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
-//     />
-//   </svg>
-// );
-
-// const UserIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-//     />
-//   </svg>
-// );
-
-// const CalendarIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-//     />
-//   </svg>
-// );
-
-// const FilterIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-//     />
-//   </svg>
-// );
-
-// const CertificateIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-//     />
-//   </svg>
-// );
-
-// const SearchIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-//     />
-//   </svg>
-// );
-
-// const BusinessIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-//     />
-//   </svg>
-// );
-
-// const ExchangeIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-//     />
-//   </svg>
-// );
-
-// const PeopleIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 6.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-//     />
-//   </svg>
-// );
-
-// const SegmentIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-//     />
-//   </svg>
-// );
-
-// const AlertTriangleIcon = ({
-//   className = "w-5 h-5",
-// }: {
-//   className?: string;
-// }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.347 16.5c-.77.833.192 2.5 1.732 2.5z"
-//     />
-//   </svg>
-// );
-
-// const InfoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-//     />
-//   </svg>
-// );
-
-// const ChevronLeftIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M15 19l-7-7 7-7"
-//     />
-//   </svg>
-// );
-
-// const ChevronRightIcon = ({
-//   className = "w-5 h-5",
-// }: {
-//   className?: string;
-// }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M9 5l7 7-7 7"
-//     />
-//   </svg>
-// );
-
-// const ChevronDoubleLeftIcon = ({
-//   className = "w-5 h-5",
-// }: {
-//   className?: string;
-// }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-//     />
-//   </svg>
-// );
-
-// const ChevronDoubleRightIcon = ({
-//   className = "w-5 h-5",
-// }: {
-//   className?: string;
-// }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M13 5l7 7-7 7M5 5l7 7-7 7"
-//     />
-//   </svg>
-// );
-
-// // --- TOAST COMPONENT ---
-// const Toast: React.FC<ToastProps> = ({
-//   id,
-//   message,
-//   type,
-//   duration = 5000,
-//   onClose,
-// }) => {
-//   useEffect(() => {
-//     const timer = setTimeout(() => onClose(id), duration);
-//     return () => clearTimeout(timer);
-//   }, [id, duration, onClose]);
-
-//   const typeClasses = {
-//     success: "bg-emerald-100 border-emerald-300 text-emerald-700",
-//     error: "bg-red-100 border-red-300 text-red-700",
-//     warning: "bg-amber-100 border-amber-300 text-amber-700",
-//     info: "bg-blue-100 border-blue-300 text-blue-700",
-//   };
-
-//   const icons = {
-//     success: <CheckIcon className="w-4 h-4" />,
-//     error: <XIcon className="w-4 h-4" />,
-//     warning: <AlertTriangleIcon className="w-4 h-4" />,
-//     info: <InfoIcon className="w-4 h-4" />,
-//   };
-
-//   return (
-//     <div
-//       className={`fixed top-4 right-4 z-50 border rounded-lg p-4 shadow-lg ${typeClasses[type]} animate-slide-in`}
-//     >
-//       <div className="flex items-center">
-//         {icons[type]}
-//         <span className="ml-2 text-sm font-medium">{message}</span>
-//         <button
-//           onClick={() => onClose(id)}
-//           className="ml-4 text-gray-400 hover:text-gray-600"
-//         >
-//           <XIcon className="w-3 h-3" />
-//         </button>
-//       </div>
-//     </div>
-//   );
-// };
-
-// // --- TOAST CONTAINER ---
-// const ToastContainer: React.FC<{
-//   toasts: ToastProps[];
-//   onClose: (id: string) => void;
-// }> = ({ toasts, onClose }) => (
-//   <div className="fixed top-4 right-4 z-50 space-y-2">
-//     {toasts.map((toast) => (
-//       <Toast key={toast.id} {...toast} onClose={onClose} />
-//     ))}
-//   </div>
-// );
-
-// // --- ERROR DISPLAY COMPONENT ---
-// interface ErrorDisplayProps {
-//   error: AppError;
-//   onAction?: (action: AppError["action"]) => void;
-//   onDismiss?: () => void;
-// }
-
-// const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
-//   error,
-//   onAction,
-//   onDismiss,
-// }) => {
-//   const getErrorIcon = () => {
-//     switch (error.type) {
-//       case "network":
-//         return <ServerIcon className="w-5 h-5" />;
-//       case "timeout":
-//         return <RefreshIcon className="w-5 h-5" />;
-//       case "auth":
-//         return <ShieldIcon className="w-5 h-5" />;
-//       default:
-//         return <XIcon className="w-5 h-5" />;
-//     }
-//   };
-
-//   const getActionButton = () => {
-//     if (!error.action || error.action === "none") return null;
-
-//     const actionConfig = {
-//       retry: {
-//         text: "Retry",
-//         className: "bg-blue-600 text-white hover:bg-blue-700",
-//       },
-//       refresh: {
-//         text: "Refresh Page",
-//         className: "bg-gray-600 text-white hover:bg-gray-700",
-//       },
-//       contact_support: {
-//         text: "Contact Support",
-//         className: "bg-amber-600 text-white hover:bg-amber-700",
-//       },
-//     };
-
-//     const config = actionConfig[error.action];
-//     if (!config) return null;
-
-//     return (
-//       <button
-//         onClick={() => onAction?.(error.action)}
-//         className={`px-4 py-2 rounded-lg text-sm font-medium ${config.className} ml-2 transition-colors`}
-//       >
-//         {config.text}
-//       </button>
-//     );
-//   };
-
-//   const getSeverityColor = () => {
-//     switch (error.severity) {
-//       case "critical":
-//         return "bg-red-50 border-red-200";
-//       case "high":
-//         return "bg-amber-50 border-amber-200";
-//       case "medium":
-//         return "bg-yellow-50 border-yellow-200";
-//       default:
-//         return "bg-gray-50 border-gray-200";
-//     }
-//   };
-
-//   return (
-//     <div className={`p-4 rounded-lg border ${getSeverityColor()}`}>
-//       <div className="flex items-start">
-//         <div className="p-2 rounded-full bg-white border">{getErrorIcon()}</div>
-//         <div className="ml-3 flex-1">
-//           <p className="font-medium text-gray-900">{error.message}</p>
-//         </div>
-//         <div className="flex items-center">
-//           {getActionButton()}
-//           {onDismiss && (
-//             <button
-//               onClick={onDismiss}
-//               className="ml-2 text-gray-400 hover:text-gray-600 p-1"
-//               aria-label="Dismiss error"
-//             >
-//               <XIcon className="w-4 h-4" />
-//             </button>
-//           )}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// // --- ERROR BOUNDARY ---
-// class DpApprovalErrorBoundary extends React.Component<
-//   { children: React.ReactNode },
-//   { hasError: boolean; error: Error | null }
-// > {
-//   constructor(props: { children: React.ReactNode }) {
-//     super(props);
-//     this.state = { hasError: false, error: null };
-//   }
-
-//   static getDerivedStateFromError(error: Error) {
-//     return { hasError: true, error };
-//   }
-
-//   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-//     console.error("DP Approval Error:", error, errorInfo);
-//   }
-
-//   handleRetry = () => {
-//     this.setState({ hasError: false, error: null });
-//     window.location.reload();
-//   };
-
-//   handleContactSupport = () => {
-//     const subject = encodeURIComponent("DP Approval Screen Error");
-//     const body = encodeURIComponent(
-//       `Error: ${this.state.error?.message}\n\nUser Agent: ${navigator.userAgent}`
-//     );
-//     window.location.href = `mailto:support@example.com?subject=${subject}&body=${body}`;
-//   };
-
-//   render() {
-//     if (this.state.hasError) {
-//       return (
-//         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-//           <div className="nsdl-card p-8 max-w-md text-center">
-//             <ShieldIcon className="w-12 h-12 text-red-500 mx-auto mb-4" />
-//             <h3 className="nsdl-heading-3 text-gray-900 mb-2">
-//               Something went wrong
-//             </h3>
-//             <p className="text-gray-600 mb-6">
-//               We encountered an error while loading the DP approval screen.
-//             </p>
-//             <div className="space-y-3">
-//               <button
-//                 onClick={this.handleRetry}
-//                 className="px-6 py-2.5 nsdl-btn-primary rounded-lg w-full"
-//               >
-//                 Reload Page
-//               </button>
-//               <button
-//                 onClick={this.handleContactSupport}
-//                 className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg w-full hover:bg-gray-300 transition-colors"
-//               >
-//                 Contact Support
-//               </button>
-//             </div>
-//             <p className="text-xs text-gray-400 mt-4">
-//               Error: {this.state.error?.message}
-//             </p>
-//           </div>
-//         </div>
-//       );
-//     }
-
-//     return this.props.children;
-//   }
-// }
-
-// // --- LOADING SKELETONS ---
-// const StatsSkeleton: React.FC = () => (
-//   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-//     {Array.from({ length: 4 }).map((_, i) => (
-//       <div key={i} className="nsdl-card p-6 animate-pulse">
-//         <div className="flex items-center">
-//           <div className="p-3 bg-gray-200 rounded-lg"></div>
-//           <div className="ml-4">
-//             <div className="h-4 bg-gray-200 rounded w-16 mb-2"></div>
-//             <div className="h-6 bg-gray-200 rounded w-8"></div>
-//           </div>
-//         </div>
-//       </div>
-//     ))}
-//   </div>
-// );
-
-// const DpListSkeleton: React.FC = () => (
-//   <div className="space-y-2">
-//     {Array.from({ length: 5 }).map((_, i) => (
-//       <div key={i} className="nsdl-card p-6 animate-pulse">
-//         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-//           <div className="h-4 bg-gray-200 rounded"></div>
-//           <div className="h-4 bg-gray-200 rounded"></div>
-//           <div className="h-4 bg-gray-200 rounded"></div>
-//           <div className="h-4 bg-gray-200 rounded"></div>
-//           <div className="h-4 bg-gray-200 rounded w-20"></div>
-//           <div className="h-4 bg-gray-200 rounded w-24"></div>
-//         </div>
-//       </div>
-//     ))}
-//   </div>
-// );
-
-// // --- DP LIST ITEM COMPONENT ---
-// interface DpListItemProps {
-//   dp: DpDetail;
-//   onAction: (dp: DpDetail, action: "approve" | "reject" | "view") => void;
-//   isProcessing: boolean;
-// }
-
-// const DpListItem: React.FC<DpListItemProps> = ({
-//   dp,
-//   onAction,
-//   isProcessing,
-// }) => {
-//   if (!dp) {
-//     return null;
-//   }
-
-//   const getStatusClasses = (status: DpDetail["status"]) => {
-//     switch (normalizeStatus(status)) {
-//       case "approved":
-//         return "bg-green-100 text-green-800 border border-green-200";
-//       case "pending":
-//         return "bg-yellow-100 text-yellow-800 border border-yellow-200";
-//       case "rejected":
-//         return "bg-red-100 text-red-800 border border-red-200";
-//       default:
-//         return "bg-gray-100 text-gray-800 border border-gray-200";
-//     }
-//   };
-
-//   const formattedDate = dp.updated_at
-//     ? new Date(dp.updated_at).toLocaleDateString("en-US", {
-//         year: "numeric",
-//         month: "short",
-//         day: "numeric",
-//       })
-//     : "N/A";
-
-//   return (
-//     <div className="nsdl-card p-6 mb-4 hover:shadow-md transition-shadow duration-200">
-//       <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-//         {/* DP Name */}
-//         <div className="font-semibold text-gray-900 truncate">
-//           {dp.dp_name || "Unnamed DP"}
-//         </div>
-
-//         {/* DP ID */}
-//         <div className="font-mono text-sm truncate">{dp.id || "N/A"}</div>
-
-//         {/* IP Address */}
-//         <div className="text-gray-900">{dp.ip_address || "N/A"}</div>
-
-//         {/* Last Updated */}
-//         <div className="text-gray-900">{formattedDate}</div>
-
-//         {/* Status */}
-//         <div>
-//           <div
-//             className={`px-3 py-1.5 text-xs font-medium rounded-full inline-block ${getStatusClasses(
-//               dp.status
-//             )}`}
-//           >
-//             {formatStatus(dp.status)}
-//           </div>
-//         </div>
-
-//         {/* Actions */}
-//         <div>
-//           <div className="flex items-center space-x-2">
-//             <button
-//               onClick={() => onAction(dp, "view")}
-//               disabled={isProcessing}
-//               className="px-3 py-1.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-//             >
-//               <EyeIcon className="w-3 h-3 mr-1" />
-//               View
-//             </button>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// // --- DP DETAIL MODAL COMPONENT ---
-// interface DpDetailModalProps {
-//   dp: DpDetail;
-//   onClose: () => void;
-//   onValidate: () => void;
-//   onAction: (dp: DpDetail, action: "approve" | "reject") => void;
-//   isProcessing: boolean;
-// }
-
-// const DpDetailModal: React.FC<DpDetailModalProps> = ({
-//   dp,
-//   onClose,
-//   onValidate,
-//   onAction,
-//   isProcessing,
-// }) => {
-//   if (!dp) {
-//     return null;
-//   }
-
-//   const getStatusClasses = (status: DpDetail["status"]) => {
-//     switch (normalizeStatus(status)) {
-//       case "approved":
-//         return "bg-green-100 text-green-800 border border-green-200";
-//       case "pending":
-//         return "bg-yellow-100 text-yellow-800 border border-yellow-200";
-//       case "rejected":
-//         return "bg-red-100 text-red-800 border border-red-200";
-//       default:
-//         return "bg-gray-100 text-gray-800 border border-gray-200";
-//     }
-//   };
-
-//   const getEnvironmentBadgeColor = (env: string) => {
-//     switch (env?.toUpperCase()) {
-//       case "UAT":
-//         return "bg-blue-100 text-blue-800 border border-blue-200";
-//       case "STAGING":
-//         return "bg-purple-100 text-purple-800 border border-purple-200";
-//       case "PRODUCTION":
-//         return "bg-green-100 text-green-800 border border-green-200";
-//       default:
-//         return "bg-gray-100 text-gray-800 border border-gray-200";
-//     }
-//   };
-
-//   const formattedCreatedDate = dp.created_at
-//     ? new Date(dp.created_at).toLocaleDateString("en-US", {
-//         year: "numeric",
-//         month: "long",
-//         day: "numeric",
-//         hour: "2-digit",
-//         minute: "2-digit",
-//       })
-//     : "N/A";
-
-//   const formattedUpdatedDate = dp.updated_at
-//     ? new Date(dp.updated_at).toLocaleDateString("en-US", {
-//         year: "numeric",
-//         month: "long",
-//         day: "numeric",
-//         hour: "2-digit",
-//         minute: "2-digit",
-//       })
-//     : "N/A";
-
-//   return (
-//     <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
-//       <div className="nsdl-card w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-//         <div className="p-6 border-b border-gray-200">
-//           <div className="flex items-center justify-between">
-//             <div className="flex items-center">
-//               <div className="p-2 bg-blue-100 rounded-lg">
-//                 <ServerIcon className="w-6 h-6 text-blue-600" />
-//               </div>
-//               <div className="ml-4">
-//                 <h3 className="nsdl-heading-3 text-gray-900">DP Details</h3>
-//                 <p className="text-sm text-gray-500 mt-1">
-//                   {dp.dp_name || "Unnamed DP"}
-//                 </p>
-//               </div>
-//             </div>
-//             <div className="flex items-center space-x-2">
-//               <span
-//                 className={`px-3 py-1.5 text-xs font-medium rounded-full ${getStatusClasses(
-//                   dp.status
-//                 )}`}
-//               >
-//                 {formatStatus(dp.status)}
-//               </span>
-//               <span
-//                 className={`px-3 py-1 text-xs font-medium rounded-full ${getEnvironmentBadgeColor(
-//                   dp.environment
-//                 )}`}
-//               >
-//                 {dp.environment || "UAT"}
-//               </span>
-//               <button
-//                 onClick={onClose}
-//                 className="text-gray-400 hover:text-gray-600 transition-colors ml-2"
-//               >
-//                 <XIcon className="w-5 h-5" />
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-
-//         <div className="p-6">
-//           <div className="space-y-8">
-//             {/* Basic Information */}
-//             <div>
-//               <h4 className="nsdl-body-bold text-gray-700 mb-4">
-//                 Basic Information
-//               </h4>
-//               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//                 <div>
-//                   <label className="nsdl-label text-xs">DP Name</label>
-//                   <p className="nsdl-body font-semibold">
-//                     {dp.dp_name || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">DP ID</label>
-//                   <p className="nsdl-body font-mono">{dp.id || "N/A"}</p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">IP Address</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <ServerIcon className="w-3 h-3 mr-1" />
-//                     {dp.ip_address || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Callback URL</label>
-//                   <p className="nsdl-body truncate">
-//                     {dp.callback_url || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Email</label>
-//                   <p className="flex items-center">{dp.email_id}</p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Environment</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <span
-//                       className={`px-2 py-1 text-xs rounded ${getEnvironmentBadgeColor(
-//                         dp.environment
-//                       )}`}
-//                     >
-//                       {dp.environment || "UAT"}
-//                     </span>
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">
-//                     Certificate Serial
-//                   </label>
-//                   <p className="nsdl-body font-mono flex items-center">
-//                     <CertificateIcon className="w-3 h-3 mr-1" />
-//                     {dp.cert_serial_number || "Not Available"}
-//                   </p>
-//                 </div>
-//               </div>
-//             </div>
-
-//             {/* Business Information */}
-//             <div>
-//               <h4 className="nsdl-body-bold text-gray-700 mb-4 flex items-center">
-//                 <BusinessIcon className="w-4 h-4 mr-2" />
-//                 Business Information
-//               </h4>
-//               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//                 <div>
-//                   <label className="nsdl-label text-xs">CM BP ID</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <BusinessIcon className="w-3 h-3 mr-1" />
-//                     {dp.cm_bp_id || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Segment</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <SegmentIcon className="w-3 h-3 mr-1" />
-//                     {dp.segment || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Exchange Code</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <ExchangeIcon className="w-3 h-3 mr-1" />
-//                     {dp.exchange_code || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">
-//                     Business Lead Name
-//                   </label>
-//                   <p className="nsdl-body flex items-center">
-//                     <PeopleIcon className="w-3 h-3 mr-1" />
-//                     {dp.business_lead_name || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">
-//                     Technical Lead Name
-//                   </label>
-//                   <p className="nsdl-body flex items-center">
-//                     <PeopleIcon className="w-3 h-3 mr-1" />
-//                     {dp.technical_lead_name || "N/A"}
-//                   </p>
-//                 </div>
-//               </div>
-//             </div>
-
-//             {/* Timestamps & Metadata */}
-//             <div>
-//               <h4 className="nsdl-body-bold text-gray-700 mb-4">
-//                 Timestamps & Metadata
-//               </h4>
-//               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//                 <div>
-//                   <label className="nsdl-label text-xs">Created At</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <CalendarIcon className="w-3 h-3 mr-1" />
-//                     {formattedCreatedDate}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Last Updated</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <CalendarIcon className="w-3 h-3 mr-1" />
-//                     {formattedUpdatedDate}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">RSA Key Status</label>
-//                   <p className="nsdl-body">
-//                     <span
-//                       className={`px-2 py-1 text-xs rounded ${getStatusClasses(
-//                         dp.rsa_key_status
-//                       )}`}
-//                     >
-//                       {formatStatus(dp.rsa_key_status)}
-//                     </span>
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Requestor ID</label>
-//                   <p className="nsdl-body font-mono">
-//                     {dp.requestor_id || "N/A"}
-//                   </p>
-//                 </div>
-//               </div>
-//             </div>
-
-//             {/* Validation Section */}
-//             <div className="pt-6 border-t border-gray-200">
-//               <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-//                 <div className="flex items-center">
-//                   <ShieldIcon className="w-5 h-5 text-blue-600 mr-3" />
-//                   <div>
-//                     <p className="nsdl-body-bold">DP Validation</p>
-//                     <p className="text-sm text-gray-500">
-//                       Validate the DP configuration before approval
-//                     </p>
-//                   </div>
-//                 </div>
-//                 <button
-//                   onClick={onValidate}
-//                   className="px-6 py-2.5 nsdl-btn-primary rounded-lg transition-colors flex items-center"
-//                 >
-//                   <ShieldIcon className="w-4 h-4 mr-2" />
-//                   Validate
-//                 </button>
-//               </div>
-//             </div>
-
-//             {/* Action Buttons - Only show for pending status */}
-//             {normalizeStatus(dp.status) === "pending" && (
-//               <div className="pt-4 border-t border-gray-200">
-//                 <div className="flex justify-end space-x-3">
-//                   <button
-//                     onClick={() => onAction(dp, "reject")}
-//                     disabled={isProcessing}
-//                     className="px-6 py-2.5 nsdl-btn-secondary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center min-w-[120px] justify-center"
-//                   >
-//                     {isProcessing ? (
-//                       <>
-//                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-//                         Processing...
-//                       </>
-//                     ) : (
-//                       <>
-//                         <XIcon className="w-4 h-4 mr-2" />
-//                         Reject
-//                       </>
-//                     )}
-//                   </button>
-//                   <button
-//                     onClick={() => onAction(dp, "approve")}
-//                     disabled={isProcessing}
-//                     className="px-6 py-2.5 nsdl-btn-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center min-w-[120px] justify-center"
-//                   >
-//                     {isProcessing ? (
-//                       <>
-//                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-//                         Processing...
-//                       </>
-//                     ) : (
-//                       <>
-//                         <CheckIcon className="w-4 h-4 mr-2" />
-//                         Approve
-//                       </>
-//                     )}
-//                   </button>
-//                 </div>
-//                 <p className="text-sm text-gray-500 mt-2 text-right">
-//                   This will approve/reject the DP for {dp.environment || "UAT"}{" "}
-//                   environment
-//                 </p>
-//               </div>
-//             )}
-
-//             {/* Status Message for non-pending DPs */}
-//             {normalizeStatus(dp.status) !== "pending" && (
-//               <div className="pt-4 border-t border-gray-200">
-//                 <div className="bg-gray-50 p-4 rounded-lg">
-//                   <div className="flex items-center">
-//                     {normalizeStatus(dp.status) === "approved" ? (
-//                       <>
-//                         <CheckIcon className="w-5 h-5 text-emerald-600 mr-3" />
-//                         <div>
-//                           <p className="nsdl-body-bold text-emerald-700">
-//                             DP Already Approved for {dp.environment || "UAT"}
-//                           </p>
-//                           <p className="text-sm text-gray-500">
-//                             This DP has been approved on {formattedUpdatedDate}
-//                           </p>
-//                           {dp.requestor_id && (
-//                             <p className="text-sm text-gray-500 mt-1">
-//                               Requestor ID: {dp.requestor_id}
-//                             </p>
-//                           )}
-//                         </div>
-//                       </>
-//                     ) : (
-//                       <>
-//                         <XIcon className="w-5 h-5 text-red-600 mr-3" />
-//                         <div>
-//                           <p className="nsdl-body-bold text-red-700">
-//                             DP {formatStatus(dp.status)} for{" "}
-//                             {dp.environment || "UAT"}
-//                           </p>
-//                           <p className="text-sm text-gray-500">
-//                             This DP was {normalizeStatus(dp.status)} on{" "}
-//                             {formattedUpdatedDate}
-//                           </p>
-//                         </div>
-//                       </>
-//                     )}
-//                   </div>
-//                 </div>
-//               </div>
-//             )}
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// // --- MAIN COMPONENT: DpApprovalScreen WITH LIVE SEARCH ---
-// export const DpApprovalScreen: React.FC = () => {
-//   const [dpDetails, setDpDetails] = useState<DpDetail[]>([]);
-//   const [isLoading, setIsLoading] = useState(false);
-//   const [errors, setErrors] = useState<AppError[]>([]);
-//   const [toasts, setToasts] = useState<ToastProps[]>([]);
-//   const [processingId, setProcessingId] = useState<string | null>(null);
-//   const [selectedDp, setSelectedDp] = useState<DpDetail | null>(null);
-//   const [statusFilter, setStatusFilter] = useState<"all" | DpDetail["status"]>(
-//     "all"
-//   );
-//   const [environmentFilter, setEnvironmentFilter] = useState<string>("UAT");
-//   const [searchTerm, setSearchTerm] = useState("");
-//   const [searchLoading, setSearchLoading] = useState(false);
-
-//   // Pagination state
-//   const [pagination, setPagination] = useState<PaginationInfo>({
-//     totalRecords: 0,
-//     totalPages: 0,
-//     currentPage: 1,
-//     limit: 10,
-//   });
-//   const [currentPage, setCurrentPage] = useState(1);
-//   const [pageSize, setPageSize] = useState(10);
-
-//   // Stats state
-//   const [stats, setStats] = useState({
-//     pending: 0,
-//     approved: 0,
-//     rejected: 0,
-//     total: 0,
-//   });
-
-//   // Refs for debouncing
-//   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-//   // Add error utility
-//   const addError = useCallback((error: Omit<AppError, "id" | "timestamp">) => {
-//     const newError: AppError = {
-//       ...error,
-//       id: Date.now().toString(),
-//       timestamp: new Date().toISOString(),
-//     };
-//     setErrors((prev) => [newError, ...prev.slice(0, 4)]);
-//   }, []);
-
-//   // Add toast utility
-//   const addToast = useCallback((toast: Omit<ToastProps, "id" | "onClose">) => {
-//     const id = Date.now().toString();
-//     setToasts((prev) => [
-//       ...prev,
-//       { ...toast, id, onClose: () => removeToast(id) },
-//     ]);
-//   }, []);
-
-//   const removeToast = useCallback((id: string) => {
-//     setToasts((prev) => prev.filter((toast) => toast.id !== id));
-//   }, []);
-
-//   // Load DP details with pagination
-//   const loadDpDetails = useCallback(
-//     async (page: number = currentPage, limit: number = pageSize) => {
-//       setIsLoading(true);
-//       setErrors([]);
-
-//       // Only set search loading if there's a search term
-//       if (searchTerm.trim()) {
-//         setSearchLoading(true);
-//       }
-
-//       const result = await fetchDpDetailsWithPagination({
-//         environment: environmentFilter,
-//         status: statusFilter === "all" ? undefined : statusFilter,
-//         page: page,
-//         limit: limit,
-//         searchTerm: searchTerm.trim() || undefined,
-//       });
-
-//       if ("error" in result) {
-//         addError(result.error);
-//         setDpDetails([]);
-//         setPagination({
-//           totalRecords: 0,
-//           totalPages: 0,
-//           currentPage: page,
-//           limit: limit,
-//         });
-//         setStats({ pending: 0, approved: 0, rejected: 0, total: 0 });
-//       } else {
-//         setDpDetails(result.data);
-//         setPagination(result.pagination);
-//         setCurrentPage(page);
-
-//         // Calculate stats from the current data
-//         const pendingCount = result.data.filter(
-//           (dp) => normalizeStatus(dp.status) === "pending"
-//         ).length;
-//         const approvedCount = result.data.filter(
-//           (dp) => normalizeStatus(dp.status) === "approved"
-//         ).length;
-//         const rejectedCount = result.data.filter(
-//           (dp) => normalizeStatus(dp.status) === "rejected"
-//         ).length;
-
-//         setStats({
-//           pending: pendingCount,
-//           approved: approvedCount,
-//           rejected: rejectedCount,
-//           total: result.data.length,
-//         });
-
-//         // Only show toast for search results or no results
-//         if (searchTerm.trim() && result.data.length === 0) {
-//           addToast({
-//             message: `No DPs found for "${searchTerm}"`,
-//             type: "info",
-//             duration: 3000,
-//           });
-//         } else if (result.data.length === 0) {
-//           addToast({
-//             message: "No DP records found",
-//             type: "info",
-//             duration: 3000,
-//           });
-//         }
-//       }
-
-//       setIsLoading(false);
-//       setSearchLoading(false);
-//     },
-//     [
-//       environmentFilter,
-//       statusFilter,
-//       searchTerm,
-//       currentPage,
-//       pageSize,
-//       addError,
-//       addToast,
-//     ]
-//   );
-
-//   // Handle live search with debouncing
-//   const handleSearchChange = (value: string) => {
-//     setSearchTerm(value);
-
-//     // Clear previous timeout
-//     if (searchTimeoutRef.current) {
-//       clearTimeout(searchTimeoutRef.current);
-//     }
-
-//     // Show loading indicator for non-empty queries
-//     if (value.trim().length > 0) {
-//       setSearchLoading(true);
-//     }
-
-//     // Set new timeout for debounced search (500ms delay)
-//     searchTimeoutRef.current = setTimeout(() => {
-//       setCurrentPage(1);
-//       loadDpDetails(1, pageSize);
-//     }, 500);
-//   };
-
-//   // Handle clear search
-//   const handleClearSearch = () => {
-//     setSearchTerm("");
-//     setCurrentPage(1);
-//     loadDpDetails(1, pageSize);
-
-//     // Clear timeout if exists
-//     if (searchTimeoutRef.current) {
-//       clearTimeout(searchTimeoutRef.current);
-//       searchTimeoutRef.current = null;
-//     }
-//   };
-
-//   // Handle keyboard shortcuts
-//   const handleKeyDown = (e: React.KeyboardEvent) => {
-//     if (e.key === "Enter") {
-//       // Clear any pending debounced search
-//       if (searchTimeoutRef.current) {
-//         clearTimeout(searchTimeoutRef.current);
-//         searchTimeoutRef.current = null;
-//       }
-
-//       // Trigger immediate search
-//       setCurrentPage(1);
-//       loadDpDetails(1, pageSize);
-//     }
-
-//     if (e.key === "Escape" && searchTerm) {
-//       handleClearSearch();
-//     }
-//   };
-
-//   // Handle page change
-//   const handlePageChange = (page: number) => {
-//     if (page >= 1 && page <= pagination.totalPages) {
-//       loadDpDetails(page, pageSize);
-//     }
-//   };
-
-//   // Handle page size change
-//   const handlePageSizeChange = (size: number) => {
-//     setPageSize(size);
-//     loadDpDetails(1, size);
-//   };
-
-//   // Handle error actions
-//   const handleErrorAction = useCallback(
-//     (errorId: string, action?: AppError["action"]) => {
-//       const error = errors.find((e) => e.id === errorId);
-//       if (!error) return;
-
-//       switch (action) {
-//         case "retry":
-//           loadDpDetails(currentPage, pageSize);
-//           break;
-//         case "refresh":
-//           window.location.reload();
-//           break;
-//         case "contact_support":
-//           window.location.href = `mailto:support@example.com?subject=DP%20Approval%20Error&body=${encodeURIComponent(
-//             error.message
-//           )}`;
-//           break;
-//         default:
-//           break;
-//       }
-
-//       setErrors((prev) => prev.filter((e) => e.id !== errorId));
-//     },
-//     [errors, currentPage, pageSize, loadDpDetails]
-//   );
-
-//   // Initialize on component mount
-//   useEffect(() => {
-//     loadDpDetails(1, pageSize);
-
-//     // Cleanup timeout on unmount
-//     return () => {
-//       if (searchTimeoutRef.current) {
-//         clearTimeout(searchTimeoutRef.current);
-//       }
-//     };
-//   }, []);
-
-//   // Reload when filters change
-//   useEffect(() => {
-//     setCurrentPage(1);
-//     loadDpDetails(1, pageSize);
-//   }, [statusFilter, environmentFilter]);
-
-//   const handleAction = useCallback(
-//     async (dp: DpDetail, action: "approve" | "reject" | "view") => {
-//       if (action === "view") {
-//         setSelectedDp(dp);
-//         return;
-//       }
-
-//       setProcessingId(dp.id);
-
-//       try {
-//         const result =
-//           action === "approve"
-//             ? await approveDp(dp.id, dp.environment || "UAT")
-//             : await rejectDp(dp.id, dp.environment || "UAT");
-
-//         if (result.success) {
-//           // Show success toast
-//           addToast({
-//             message: `Successfully ${
-//               action === "approve" ? "approved" : "rejected"
-//             } ${dp.dp_name || "DP"}`,
-//             type: "success",
-//             duration: 3000,
-//           });
-
-//           // Close the modal
-//           setSelectedDp(null);
-
-//           // Reload data
-//           await loadDpDetails(currentPage, pageSize);
-
-//           // If we're on a page that might become empty after approval/reject,
-//           // adjust the page number if needed
-//           if (dpDetails.length <= 1 && currentPage > 1) {
-//             const newPage = currentPage - 1;
-//             loadDpDetails(newPage, pageSize);
-//           }
-//         } else if (result.error) {
-//           // Show error toast
-//           addToast({
-//             message: result.error.message,
-//             type: "error",
-//             duration: 5000,
-//           });
-//         }
-//       } catch (err) {
-//         // Show error toast
-//         const errorMessage =
-//           err instanceof Error ? err.message : "Unknown error occurred";
-//         addToast({
-//           message: `Failed to ${action} DP: ${errorMessage}`,
-//           type: "error",
-//           duration: 5000,
-//         });
-//       } finally {
-//         setProcessingId(null);
-//       }
-//     },
-//     [currentPage, pageSize, loadDpDetails, addToast, dpDetails]
-//   );
-
-//   const handleValidate = () => {
-//     alert(`Validating DP: ${selectedDp?.dp_name}`);
-//   };
-
-//   // Generate page numbers for pagination
-//   const getPageNumbers = () => {
-//     const pages = [];
-//     const maxPagesToShow = 5;
-
-//     if (pagination.totalPages <= maxPagesToShow) {
-//       for (let i = 1; i <= pagination.totalPages; i++) {
-//         pages.push(i);
-//       }
-//     } else {
-//       let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
-//       let endPage = startPage + maxPagesToShow - 1;
-
-//       if (endPage > pagination.totalPages) {
-//         endPage = pagination.totalPages;
-//         startPage = Math.max(1, endPage - maxPagesToShow + 1);
-//       }
-
-//       for (let i = startPage; i <= endPage; i++) {
-//         pages.push(i);
-//       }
-//     }
-
-//     return pages;
-//   };
-
-//   const startRecord = (currentPage - 1) * pagination.limit + 1;
-//   const endRecord = Math.min(
-//     currentPage * pagination.limit,
-//     pagination.totalRecords
-//   );
-
-//   return (
-//     <DpApprovalErrorBoundary>
-//       <div className="min-h-screen bg-gray-50 py-10">
-//         {/* Toast Container */}
-//         <ToastContainer toasts={toasts} onClose={removeToast} />
-
-//         {/* Error Display Area */}
-//         {errors.length > 0 && (
-//           <div className="max-w-full mx-auto px-6 sm:px-8 lg:px-10 mb-6 space-y-2">
-//             {errors.map((error) => (
-//               <ErrorDisplay
-//                 key={error.id}
-//                 error={error}
-//                 onAction={(action) =>
-//                   error.id && handleErrorAction(error.id!, action)
-//                 }
-//                 onDismiss={() =>
-//                   error.id &&
-//                   setErrors((prev) => prev.filter((e) => e.id !== error.id))
-//                 }
-//               />
-//             ))}
-//           </div>
-//         )}
-
-//         <div className="max-w-full mx-auto px-6 sm:px-8 lg:px-10">
-//           {/* Header */}
-//           <div className="mb-10">
-//             <h1 className="nsdl-heading-1 text-gray-900 mb-3">
-//               DP Approval Management
-//             </h1>
-//             <p className="nsdl-body text-gray-600">
-//               Review and approve/reject Depository Participant registrations for
-//               UAT and STAGING environments
-//             </p>
-//           </div>
-
-//           {/* Stats Cards */}
-//           {isLoading ? (
-//             <StatsSkeleton />
-//           ) : (
-//             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-//               <div className="nsdl-card p-6">
-//                 <div className="flex items-center">
-//                   <div className="p-3 bg-amber-100 rounded-lg">
-//                     <ServerIcon className="w-6 h-6 text-amber-600" />
-//                   </div>
-//                   <div className="ml-4">
-//                     <p className="nsdl-body text-gray-600">Pending</p>
-//                     <p className="text-2xl font-semibold text-gray-900">
-//                       {stats.pending}
-//                     </p>
-//                   </div>
-//                 </div>
-//               </div>
-//               <div className="nsdl-card p-6">
-//                 <div className="flex items-center">
-//                   <div className="p-3 bg-emerald-100 rounded-lg">
-//                     <CheckIcon className="w-6 h-6 text-emerald-600" />
-//                   </div>
-//                   <div className="ml-4">
-//                     <p className="nsdl-body text-gray-600">Approved</p>
-//                     <p className="text-2xl font-semibold text-gray-900">
-//                       {stats.approved}
-//                     </p>
-//                   </div>
-//                 </div>
-//               </div>
-//               <div className="nsdl-card p-6">
-//                 <div className="flex items-center">
-//                   <div className="p-3 bg-red-100 rounded-lg">
-//                     <XIcon className="w-6 h-6 text-red-600" />
-//                   </div>
-//                   <div className="ml-4">
-//                     <p className="nsdl-body text-gray-600">Rejected</p>
-//                     <p className="text-2xl font-semibold text-gray-900">
-//                       {stats.rejected}
-//                     </p>
-//                   </div>
-//                 </div>
-//               </div>
-//               <div className="nsdl-card p-6">
-//                 <div className="flex items-center">
-//                   <div className="p-3 bg-gray-100 rounded-lg">
-//                     <ServerIcon className="w-6 h-6 text-gray-600" />
-//                   </div>
-//                   <div className="ml-4">
-//                     <p className="nsdl-body text-gray-600">Total</p>
-//                     <p className="text-2xl font-semibold text-gray-900">
-//                       {stats.total}
-//                     </p>
-//                   </div>
-//                 </div>
-//               </div>
-//             </div>
-//           )}
-
-//           {/* Filters and Controls */}
-//           <div className="nsdl-card p-6 mb-6">
-//             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-//               <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-//                 <div className="flex items-center">
-//                   <FilterIcon className="w-5 h-5" />
-//                   <span className="ml-3 nsdl-body-bold text-gray-700">
-//                     Status:
-//                   </span>
-//                   <div className="flex flex-wrap gap-2 ml-4">
-//                     {["all", "pending", "approved", "rejected"].map(
-//                       (status) => (
-//                         <button
-//                           key={status}
-//                           onClick={() =>
-//                             setStatusFilter(
-//                               status === "all"
-//                                 ? "all"
-//                                 : (status as DpDetail["status"])
-//                             )
-//                           }
-//                           className={`px-4 py-2.5 nsdl-body rounded-lg transition-colors duration-200 ${
-//                             statusFilter === (status === "all" ? "all" : status)
-//                               ? "nsdl-btn-primary"
-//                               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-//                           }`}
-//                         >
-//                           {status === "all" ? "All" : formatStatus(status)}
-//                         </button>
-//                       )
-//                     )}
-//                   </div>
-//                 </div>
-//                 <div className="flex items-center">
-//                   <ServerIcon className="w-5 h-5" />
-//                   <span className="ml-3 nsdl-body-bold text-gray-700">
-//                     Environment:
-//                   </span>
-//                   <div className="flex flex-wrap gap-2 ml-4">
-//                     {["UAT", "STAGING"].map((env) => (
-//                       <button
-//                         key={env}
-//                         onClick={() => setEnvironmentFilter(env)}
-//                         className={`px-4 py-2.5 nsdl-body rounded-lg transition-colors duration-200 ${
-//                           environmentFilter === env
-//                             ? env === "UAT"
-//                               ? "bg-blue-100 text-blue-700 border border-blue-300"
-//                               : "bg-purple-100 text-purple-700 border border-purple-300"
-//                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-//                         }`}
-//                       >
-//                         {env}
-//                       </button>
-//                     ))}
-//                   </div>
-//                 </div>
-//               </div>
-
-//               <div className="flex flex-col sm:flex-row items-center gap-4">
-//                 {/* Live Search Box */}
-//                 <div className="flex items-center gap-3 w-full sm:w-auto">
-//                   <div className="relative flex-1 sm:flex-initial min-w-[300px]">
-//                     <input
-//                       type="text"
-//                       placeholder="Search by DP Name or ID"
-//                       className="pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full"
-//                       value={searchTerm}
-//                       onChange={(e) => handleSearchChange(e.target.value)}
-//                       onKeyDown={handleKeyDown}
-//                       disabled={isLoading}
-//                     />
-//                     <SearchIcon className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-
-//                     {/* Loading indicator */}
-//                     {searchLoading && (
-//                       <div className="absolute right-10 top-3">
-//                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-//                       </div>
-//                     )}
-
-//                     {/* Clear button */}
-//                     {searchTerm && (
-//                       <button
-//                         onClick={handleClearSearch}
-//                         className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
-//                         disabled={isLoading}
-//                         title="Clear search"
-//                       >
-//                         <XIcon className="w-4 h-4" />
-//                       </button>
-//                     )}
-//                   </div>
-
-//                   {/* Search status indicator */}
-//                   {searchTerm && (
-//                     <div className="text-sm text-gray-500 hidden sm:block">
-//                       {dpDetails.length} result
-//                       {dpDetails.length !== 1 ? "s" : ""} found
-//                       {searchTerm && ` for "${searchTerm}"`}
-//                     </div>
-//                   )}
-//                 </div>
-
-//                 {/* Refresh Button */}
-//                 <div className="flex items-center">
-//                   <button
-//                     onClick={() => loadDpDetails(currentPage, pageSize)}
-//                     disabled={isLoading || searchLoading}
-//                     className="flex items-center px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-//                     title="Refresh data"
-//                   >
-//                     <RefreshIcon className="w-4 h-4 mr-2" />
-//                     Refresh
-//                   </button>
-//                 </div>
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* Table Headings */}
-//           <div className="bg-gray-50 rounded-t-lg border border-gray-200 p-4 mb-2">
-//             <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-//               <div className="text-sm font-semibold text-gray-700">DP Name</div>
-//               <div className="text-sm font-semibold text-gray-700">DP ID</div>
-//               <div className="text-sm font-semibold text-gray-700">
-//                 IP Address
-//               </div>
-//               <div className="text-sm font-semibold text-gray-700">
-//                 Last Updated
-//               </div>
-//               <div className="text-sm font-semibold text-gray-700">Status</div>
-//               <div className="text-sm font-semibold text-gray-700">Actions</div>
-//             </div>
-//           </div>
-
-//           {/* DP List */}
-//           {isLoading || searchLoading ? (
-//             <DpListSkeleton />
-//           ) : dpDetails.length > 0 ? (
-//             <>
-//               <div className="space-y-2">
-//                 {dpDetails.map((dp) => (
-//                   <DpListItem
-//                     key={`${dp.id}-${dp.environment}-${dp.updated_at}`}
-//                     dp={dp}
-//                     onAction={handleAction}
-//                     isProcessing={processingId === dp.id}
-//                   />
-//                 ))}
-//               </div>
-
-//               {/* Pagination Controls */}
-//               {pagination.totalPages > 0 && (
-//                 <div className="flex flex-col sm:flex-row items-center justify-between mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-//                   <div className="flex items-center mb-4 sm:mb-0">
-//                     <span className="text-sm text-gray-700 mr-3">
-//                       Rows per page:
-//                     </span>
-//                     <select
-//                       value={pageSize}
-//                       onChange={(e) =>
-//                         handlePageSizeChange(Number(e.target.value))
-//                       }
-//                       disabled={isLoading || searchLoading}
-//                       className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-//                     >
-//                       {[5, 10, 20, 50].map((size) => (
-//                         <option key={size} value={size}>
-//                           {size}
-//                         </option>
-//                       ))}
-//                     </select>
-//                     <span className="text-sm text-gray-600 ml-4">
-//                       Showing {startRecord} to {endRecord} of{" "}
-//                       {pagination.totalRecords} records
-//                     </span>
-//                   </div>
-
-//                   <div className="flex items-center space-x-2">
-//                     <button
-//                       onClick={() => handlePageChange(1)}
-//                       disabled={currentPage === 1 || isLoading || searchLoading}
-//                       className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-//                       title="First Page"
-//                     >
-//                       <ChevronDoubleLeftIcon className="w-4 h-4" />
-//                     </button>
-
-//                     <button
-//                       onClick={() => handlePageChange(currentPage - 1)}
-//                       disabled={currentPage === 1 || isLoading || searchLoading}
-//                       className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-//                       title="Previous Page"
-//                     >
-//                       <ChevronLeftIcon className="w-4 h-4" />
-//                     </button>
-
-//                     <div className="flex items-center space-x-1">
-//                       {getPageNumbers().map((page) => (
-//                         <button
-//                           key={page}
-//                           onClick={() => handlePageChange(page)}
-//                           disabled={isLoading || searchLoading}
-//                           className={`min-w-[36px] px-3 py-1.5 text-sm border rounded ${
-//                             currentPage === page
-//                               ? "bg-blue-600 text-white border-blue-600"
-//                               : "border-gray-300 hover:bg-gray-50"
-//                           }`}
-//                         >
-//                           {page}
-//                         </button>
-//                       ))}
-//                     </div>
-
-//                     <button
-//                       onClick={() => handlePageChange(currentPage + 1)}
-//                       disabled={
-//                         currentPage === pagination.totalPages ||
-//                         isLoading ||
-//                         searchLoading
-//                       }
-//                       className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-//                       title="Next Page"
-//                     >
-//                       <ChevronRightIcon className="w-4 h-4" />
-//                     </button>
-
-//                     <button
-//                       onClick={() => handlePageChange(pagination.totalPages)}
-//                       disabled={
-//                         currentPage === pagination.totalPages ||
-//                         isLoading ||
-//                         searchLoading
-//                       }
-//                       className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-//                       title="Last Page"
-//                     >
-//                       <ChevronDoubleRightIcon className="w-4 h-4" />
-//                     </button>
-//                   </div>
-//                 </div>
-//               )}
-//             </>
-//           ) : (
-//             <div className="nsdl-card p-12 text-center">
-//               <ServerIcon className="w-12 h-12 mx-auto text-gray-300" />
-//               <h3 className="mt-4 nsdl-heading-3 text-gray-900">
-//                 No DPs Found
-//               </h3>
-//               <p className="mt-2 text-gray-500 nsdl-body">
-//                 {searchTerm
-//                   ? "No DPs found matching your search criteria"
-//                   : "No DP records found. Ensure the backend has data."}
-//               </p>
-//               {searchTerm && (
-//                 <button
-//                   onClick={handleClearSearch}
-//                   className="mt-4 px-4 py-2 nsdl-btn-primary rounded-lg"
-//                 >
-//                   Clear Search
-//                 </button>
-//               )}
-//             </div>
-//           )}
-//         </div>
-
-//         {/* Detail View Modal */}
-//         {selectedDp && (
-//           <DpDetailModal
-//             dp={selectedDp}
-//             onClose={() => setSelectedDp(null)}
-//             onValidate={handleValidate}
-//             onAction={handleAction}
-//             isProcessing={processingId === selectedDp.id}
-//           />
-//         )}
-//       </div>
-//     </DpApprovalErrorBoundary>
-//   );
-// };
-
-// export default DpApprovalScreen;
-
-// import React, { useState, useEffect, useCallback, useRef } from "react";
-
-// const API_BASE_URL =
-//   import.meta.env.VITE_API_BASE_URL || "http://localhost:3003";
-
-// // --- TYPE DEFINITIONS ---
-// interface AuthenticationDetails {
-//   username: string;
-//   password?: string;
-// }
-
-// interface DpDetail {
-//   id: string;
-//   dp_name: string;
-//   email_id: string;
-//   ip_address: string;
-//   callback_url: string;
-//   authentication_details: AuthenticationDetails;
-//   rsa_public_key?: string;
-//   cert_serial_number?: string;
-//   certificate_file?: string;
-//   cm_bp_id?: string;
-//   segment?: string;
-//   exchange_code?: string;
-//   business_lead_name?: string;
-//   technical_lead_name?: string;
-//   rsa_key_status: "approved" | "pending" | "rejected" | "not approved";
-//   status: "approved" | "pending" | "rejected";
-//   environment: string;
-//   requestor_id?: string | null;
-//   created_at: string;
-//   updated_at: string;
-// }
-
-// // --- PAGINATION TYPES ---
-// interface PaginationInfo {
-//   totalRecords: number;
-//   totalPages: number;
-//   currentPage: number;
-//   limit: number;
-// }
-
-// interface PaginatedApiResponse<T> {
-//   success: boolean;
-//   message: string;
-//   data: {
-//     data: T[];
-//     pagination: PaginationInfo;
-//   };
-// }
-
-// // --- ERROR HANDLING TYPES ---
-// interface AppError {
-//   id?: string;
-//   type: "network" | "validation" | "api" | "timeout" | "auth" | "unknown";
-//   message: string;
-//   severity: "low" | "medium" | "high" | "critical";
-//   timestamp: string;
-//   retryable: boolean;
-//   details?: Record<string, unknown>;
-//   action?: "retry" | "refresh" | "contact_support" | "none";
-// }
-
-// // --- TOAST TYPES ---
-// interface ToastProps {
-//   id: string;
-//   message: string;
-//   type: "success" | "error" | "warning" | "info";
-//   duration?: number;
-//   onClose: (id: string) => void;
-// }
-
-// // --- API CONFIGURATION ---
-// const BACKEND_API_URL_UAT = `${API_BASE_URL}/v1/api/dp`;
-// const BACKEND_API_URL_STAGING = `${API_BASE_URL}/v1/api/dp-staging`;
-
-// // --- DEBOUNCE UTILITY ---
-// const debounce = <T extends (...args: any[]) => any>(
-//   func: T,
-//   wait: number
-// ): ((...args: Parameters<T>) => void) => {
-//   let timeout: NodeJS.Timeout | null = null;
-
-//   return (...args: Parameters<T>) => {
-//     if (timeout) clearTimeout(timeout);
-//     timeout = setTimeout(() => func(...args), wait);
-//   };
-// };
-
-// // --- ENHANCED API WRAPPER ---
-// const apiCall = async <T,>(
-//   url: string,
-//   options: RequestInit = {}
-// ): Promise<{ data: T; ok: true } | { error: AppError; ok: false }> => {
-//   const controller = new AbortController();
-//   const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-//   try {
-//     const response = await fetch(url, {
-//       ...options,
-//       signal: controller.signal,
-//       headers: {
-//         "Content-Type": "application/json",
-//         ...options.headers,
-//       },
-//     });
-
-//     clearTimeout(timeoutId);
-
-//     if (!response.ok) {
-//       const errorText = await response.text();
-//       let parsedError = { message: errorText };
-
-//       try {
-//         parsedError = JSON.parse(errorText) as { message: string };
-//       } catch {
-//         // Keep text as is
-//       }
-
-//       return {
-//         ok: false,
-//         error: {
-//           type: "api",
-//           message: parsedError.message || `HTTP ${response.status}`,
-//           severity: response.status >= 500 ? "high" : "medium",
-//           retryable: response.status >= 500,
-//           timestamp: new Date().toISOString(),
-//           action:
-//             response.status === 401
-//               ? "auth"
-//               : response.status >= 500
-//               ? "retry"
-//               : "none",
-//           details: {
-//             statusCode: response.status,
-//             endpoint: url,
-//             method: options.method || "GET",
-//           },
-//         },
-//       };
-//     }
-
-//     const data = (await response.json()) as T;
-//     return { ok: true, data };
-//   } catch (error) {
-//     clearTimeout(timeoutId);
-
-//     let errorType: AppError["type"] = "unknown";
-//     let message = "An unexpected error occurred";
-//     let retryable = false;
-
-//     if (error instanceof DOMException && error.name === "AbortError") {
-//       errorType = "timeout";
-//       message = "Request timed out. Please check your connection.";
-//       retryable = true;
-//     } else if (
-//       error instanceof TypeError &&
-//       error.message.includes("Failed to fetch")
-//     ) {
-//       errorType = "network";
-//       message = "Network error. Please check your internet connection.";
-//       retryable = true;
-//     } else if (error instanceof Error) {
-//       message = error.message;
-//     }
-
-//     return {
-//       ok: false,
-//       error: {
-//         type: errorType,
-//         message,
-//         severity: "high",
-//         retryable,
-//         timestamp: new Date().toISOString(),
-//         action: retryable ? "retry" : "contact_support",
-//         details: { originalError: error },
-//       },
-//     };
-//   }
-// };
-
-// // --- HELPER FUNCTIONS ---
-// const normalizeStatus = (status: string): string => status.toLowerCase();
-
-// const formatStatus = (status: string): string => {
-//   return status.charAt(0).toUpperCase() + status.slice(1);
-// };
-
-// interface RawDpData {
-//   id?: string;
-//   dp_name?: string;
-//   ip_address?: string;
-//   callback_url?: string;
-//   email_id?: string;
-//   authentication_details?: AuthenticationDetails;
-//   rsa_public_key?: string;
-//   cert_serial_number?: string;
-//   certificate_file?: string;
-//   cm_bp_id?: string;
-//   segment?: string;
-//   exchange_code?: string;
-//   business_lead_name?: string;
-//   technical_lead_name?: string;
-//   rsa_key_status?: string;
-//   status?: string;
-//   requestor_id?: string | null;
-//   created_at?: string;
-//   updated_at?: string;
-// }
-
-// const normalizeDpDetails = (
-//   rawDetails: unknown,
-//   environment: string
-// ): DpDetail[] => {
-//   if (!Array.isArray(rawDetails)) {
-//     console.warn(`Expected array for DP details, got:`, rawDetails);
-//     return [];
-//   }
-
-//   return rawDetails
-//     .filter(
-//       (dp: unknown): dp is RawDpData =>
-//         dp !== null &&
-//         typeof dp === "object" &&
-//         "id" in dp &&
-//         typeof (dp as RawDpData).id === "string"
-//     )
-//     .map((dp: RawDpData) => ({
-//       id: dp.id || "",
-//       dp_name: dp.dp_name || "",
-//       ip_address: dp.ip_address || "",
-//       callback_url: dp.callback_url || "",
-//       email_id: dp.email_id || "",
-//       authentication_details: dp.authentication_details || {
-//         username: "",
-//         password: "",
-//       },
-//       rsa_public_key: dp.rsa_public_key,
-//       cert_serial_number: dp.cert_serial_number,
-//       certificate_file: dp.certificate_file,
-//       cm_bp_id: dp.cm_bp_id,
-//       segment: dp.segment,
-//       exchange_code: dp.exchange_code,
-//       business_lead_name: dp.business_lead_name,
-//       technical_lead_name: dp.technical_lead_name,
-//       rsa_key_status: normalizeStatus(
-//         dp.rsa_key_status || "pending"
-//       ) as DpDetail["rsa_key_status"],
-//       status: normalizeStatus(
-//         dp.status || dp.rsa_key_status || "pending"
-//       ) as DpDetail["status"],
-//       environment: environment,
-//       requestor_id: dp.requestor_id,
-//       created_at: dp.created_at || new Date().toISOString(),
-//       updated_at: dp.updated_at || new Date().toISOString(),
-//     }));
-// };
-
-// // --- API CALLS WITH PAGINATION & SEARCH ---
-// interface FetchDpOptions {
-//   environment: string;
-//   status?: string;
-//   page?: number;
-//   limit?: number;
-//   searchTerm?: string;
-// }
-
-// const fetchDpDetailsWithPagination = async (
-//   options: FetchDpOptions
-// ): Promise<
-//   { data: DpDetail[]; pagination: PaginationInfo } | { error: AppError }
-// > => {
-//   const {
-//     environment = "UAT",
-//     status,
-//     page = 1,
-//     limit = 10,
-//     searchTerm,
-//   } = options;
-
-//   try {
-//     const baseUrl =
-//       environment.toUpperCase() === "UAT"
-//         ? `${API_BASE_URL}/v1/api/dp`
-//         : `${API_BASE_URL}/v1/api/dp-staging`;
-
-//     const params = new URLSearchParams();
-
-//     if (status && status !== "all") {
-//       params.append("status", status.toUpperCase());
-//     }
-
-//     if (searchTerm?.trim()) {
-//       params.append("search", searchTerm.trim());
-//     }
-
-//     params.append("page", page.toString());
-//     params.append("limit", limit.toString());
-
-//     const url = `${baseUrl}?${params.toString()}`;
-//     const result = await apiCall<PaginatedApiResponse<unknown>>(url);
-
-//     if (!result.ok) {
-//       console.error(`Failed to fetch ${environment} DP details:`, result.error);
-//       return { error: result.error };
-//     }
-
-//     const responseData = result.data;
-
-//     if (!responseData?.data) {
-//       console.error(`Invalid response from ${url}:`, responseData);
-//       return {
-//         error: {
-//           type: "api",
-//           message: "Invalid response from server",
-//           severity: "medium",
-//           retryable: true,
-//           timestamp: new Date().toISOString(),
-//           action: "retry",
-//         },
-//       };
-//     }
-
-//     const pagination = responseData.data.pagination || {
-//       totalRecords: 0,
-//       totalPages: 0,
-//       currentPage: page,
-//       limit: limit,
-//     };
-
-//     let rawDetails: unknown = [];
-
-//     if (Array.isArray(responseData.data.data)) {
-//       rawDetails = responseData.data.data;
-//     } else if (Array.isArray(responseData.data)) {
-//       rawDetails = responseData.data;
-//     } else {
-//       console.warn(`Unexpected data structure from ${url}:`, responseData.data);
-//       return {
-//         data: [],
-//         pagination: {
-//           totalRecords: 0,
-//           totalPages: 0,
-//           currentPage: page,
-//           limit: limit,
-//         },
-//       };
-//     }
-
-//     const dpDetails = normalizeDpDetails(rawDetails, environment);
-
-//     return { data: dpDetails, pagination };
-//   } catch (error) {
-//     console.error("Error fetching DP details with pagination:", error);
-//     return {
-//       error: {
-//         type: "network",
-//         message: "Failed to fetch DP details",
-//         severity: "high",
-//         retryable: true,
-//         timestamp: new Date().toISOString(),
-//         action: "retry",
-//       },
-//     };
-//   }
-// };
-
-// const approveDp = async (
-//   dpId: string,
-//   environment: string = "UAT"
-// ): Promise<{ success: boolean; error?: AppError }> => {
-//   const approveUrl = `${API_BASE_URL}/v1/api/dp/approve/${dpId}`;
-
-//   const requestBody = {
-//     status: "APPROVED",
-//     environment: environment.toUpperCase(),
-//   };
-
-//   const result = await apiCall<{
-//     success: boolean;
-//     message?: string;
-//     data?: any;
-//   }>(approveUrl, {
-//     method: "POST",
-//     body: JSON.stringify(requestBody),
-//   });
-
-//   if (!result.ok) {
-//     return { success: false, error: result.error };
-//   }
-
-//   if (!result.data.success) {
-//     return {
-//       success: false,
-//       error: {
-//         type: "api",
-//         message: result.data.message || "Failed to approve DP",
-//         severity: "medium",
-//         retryable: true,
-//         timestamp: new Date().toISOString(),
-//         action: "retry",
-//       },
-//     };
-//   }
-
-//   return { success: true };
-// };
-
-// const rejectDp = async (
-//   dpId: string,
-//   environment: string = "UAT"
-// ): Promise<{ success: boolean; error?: AppError }> => {
-//   const rejectUrl = `${API_BASE_URL}/v1/api/dp/approve/${dpId}`;
-
-//   const requestBody = {
-//     status: "REJECTED",
-//     environment: environment.toUpperCase(),
-//   };
-
-//   const result = await apiCall<{
-//     success: boolean;
-//     message?: string;
-//     data?: any;
-//   }>(rejectUrl, {
-//     method: "POST",
-//     body: JSON.stringify(requestBody),
-//   });
-
-//   if (!result.ok) {
-//     return { success: false, error: result.error };
-//   }
-
-//   if (!result.data.success) {
-//     return {
-//       success: false,
-//       error: {
-//         type: "api",
-//         message: result.data.message || "Failed to reject DP",
-//         severity: "medium",
-//         retryable: true,
-//         timestamp: new Date().toISOString(),
-//         action: "retry",
-//       },
-//     };
-//   }
-
-//   return { success: true };
-// };
-
-// // --- ICON COMPONENTS ---
-// const CheckIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M5 13l4 4L19 7"
-//     />
-//   </svg>
-// );
-
-// const XIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M6 18L18 6M6 6l12 12"
-//     />
-//   </svg>
-// );
-
-// const EyeIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-//     />
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-//     />
-//   </svg>
-// );
-
-// const ShieldIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-//     />
-//   </svg>
-// );
-
-// const RefreshIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-//     />
-//   </svg>
-// );
-
-// const ServerIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
-//     />
-//   </svg>
-// );
-
-// const UserIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-//     />
-//   </svg>
-// );
-
-// const CalendarIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-//     />
-//   </svg>
-// );
-
-// const FilterIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-//     />
-//   </svg>
-// );
-
-// const CertificateIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-//     />
-//   </svg>
-// );
-
-// const SearchIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-//     />
-//   </svg>
-// );
-
-// const BusinessIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-//     />
-//   </svg>
-// );
-
-// const ExchangeIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-//     />
-//   </svg>
-// );
-
-// const PeopleIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 6.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-//     />
-//   </svg>
-// );
-
-// const SegmentIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-//     />
-//   </svg>
-// );
-
-// const AlertTriangleIcon = ({
-//   className = "w-5 h-5",
-// }: {
-//   className?: string;
-// }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.347 16.5c-.77.833.192 2.5 1.732 2.5z"
-//     />
-//   </svg>
-// );
-
-// const InfoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-//     />
-//   </svg>
-// );
-
-// const ChevronLeftIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M15 19l-7-7 7-7"
-//     />
-//   </svg>
-// );
-
-// const ChevronRightIcon = ({
-//   className = "w-5 h-5",
-// }: {
-//   className?: string;
-// }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M9 5l7 7-7 7"
-//     />
-//   </svg>
-// );
-
-// const ChevronDoubleLeftIcon = ({
-//   className = "w-5 h-5",
-// }: {
-//   className?: string;
-// }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-//     />
-//   </svg>
-// );
-
-// const ChevronDoubleRightIcon = ({
-//   className = "w-5 h-5",
-// }: {
-//   className?: string;
-// }) => (
-//   <svg
-//     className={className}
-//     fill="none"
-//     stroke="currentColor"
-//     viewBox="0 0 24 24"
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       strokeWidth={2}
-//       d="M13 5l7 7-7 7M5 5l7 7-7 7"
-//     />
-//   </svg>
-// );
-
-// // --- TOAST COMPONENT ---
-// const Toast: React.FC<ToastProps> = ({
-//   id,
-//   message,
-//   type,
-//   duration = 5000,
-//   onClose,
-// }) => {
-//   useEffect(() => {
-//     const timer = setTimeout(() => onClose(id), duration);
-//     return () => clearTimeout(timer);
-//   }, [id, duration, onClose]);
-
-//   const typeClasses = {
-//     success: "bg-emerald-100 border-emerald-300 text-emerald-700",
-//     error: "bg-red-100 border-red-300 text-red-700",
-//     warning: "bg-amber-100 border-amber-300 text-amber-700",
-//     info: "bg-blue-100 border-blue-300 text-blue-700",
-//   };
-
-//   const icons = {
-//     success: <CheckIcon className="w-4 h-4" />,
-//     error: <XIcon className="w-4 h-4" />,
-//     warning: <AlertTriangleIcon className="w-4 h-4" />,
-//     info: <InfoIcon className="w-4 h-4" />,
-//   };
-
-//   return (
-//     <div
-//       className={`fixed top-4 right-4 z-50 border rounded-lg p-4 shadow-lg ${typeClasses[type]} animate-slide-in`}
-//     >
-//       <div className="flex items-center">
-//         {icons[type]}
-//         <span className="ml-2 text-sm font-medium">{message}</span>
-//         <button
-//           onClick={() => onClose(id)}
-//           className="ml-4 text-gray-400 hover:text-gray-600"
-//         >
-//           <XIcon className="w-3 h-3" />
-//         </button>
-//       </div>
-//     </div>
-//   );
-// };
-
-// // --- TOAST CONTAINER ---
-// const ToastContainer: React.FC<{
-//   toasts: ToastProps[];
-//   onClose: (id: string) => void;
-// }> = ({ toasts, onClose }) => (
-//   <div className="fixed top-4 right-4 z-50 space-y-2">
-//     {toasts.map((toast) => (
-//       <Toast key={toast.id} {...toast} onClose={onClose} />
-//     ))}
-//   </div>
-// );
-
-// // --- ERROR DISPLAY COMPONENT ---
-// interface ErrorDisplayProps {
-//   error: AppError;
-//   onAction?: (action: AppError["action"]) => void;
-//   onDismiss?: () => void;
-// }
-
-// const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
-//   error,
-//   onAction,
-//   onDismiss,
-// }) => {
-//   const getErrorIcon = () => {
-//     switch (error.type) {
-//       case "network":
-//         return <ServerIcon className="w-5 h-5" />;
-//       case "timeout":
-//         return <RefreshIcon className="w-5 h-5" />;
-//       case "auth":
-//         return <ShieldIcon className="w-5 h-5" />;
-//       default:
-//         return <XIcon className="w-5 h-5" />;
-//     }
-//   };
-
-//   const getActionButton = () => {
-//     if (!error.action || error.action === "none") return null;
-
-//     const actionConfig = {
-//       retry: {
-//         text: "Retry",
-//         className: "bg-blue-600 text-white hover:bg-blue-700",
-//       },
-//       refresh: {
-//         text: "Refresh Page",
-//         className: "bg-gray-600 text-white hover:bg-gray-700",
-//       },
-//       contact_support: {
-//         text: "Contact Support",
-//         className: "bg-amber-600 text-white hover:bg-amber-700",
-//       },
-//     };
-
-//     const config = actionConfig[error.action];
-//     if (!config) return null;
-
-//     return (
-//       <button
-//         onClick={() => onAction?.(error.action)}
-//         className={`px-4 py-2 rounded-lg text-sm font-medium ${config.className} ml-2 transition-colors`}
-//       >
-//         {config.text}
-//       </button>
-//     );
-//   };
-
-//   const getSeverityColor = () => {
-//     switch (error.severity) {
-//       case "critical":
-//         return "bg-red-50 border-red-200";
-//       case "high":
-//         return "bg-amber-50 border-amber-200";
-//       case "medium":
-//         return "bg-yellow-50 border-yellow-200";
-//       default:
-//         return "bg-gray-50 border-gray-200";
-//     }
-//   };
-
-//   return (
-//     <div className={`p-4 rounded-lg border ${getSeverityColor()}`}>
-//       <div className="flex items-start">
-//         <div className="p-2 rounded-full bg-white border">{getErrorIcon()}</div>
-//         <div className="ml-3 flex-1">
-//           <p className="font-medium text-gray-900">{error.message}</p>
-//         </div>
-//         <div className="flex items-center">
-//           {getActionButton()}
-//           {onDismiss && (
-//             <button
-//               onClick={onDismiss}
-//               className="ml-2 text-gray-400 hover:text-gray-600 p-1"
-//               aria-label="Dismiss error"
-//             >
-//               <XIcon className="w-4 h-4" />
-//             </button>
-//           )}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// // --- ERROR BOUNDARY ---
-// class DpApprovalErrorBoundary extends React.Component<
-//   { children: React.ReactNode },
-//   { hasError: boolean; error: Error | null }
-// > {
-//   constructor(props: { children: React.ReactNode }) {
-//     super(props);
-//     this.state = { hasError: false, error: null };
-//   }
-
-//   static getDerivedStateFromError(error: Error) {
-//     return { hasError: true, error };
-//   }
-
-//   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-//     console.error("DP Approval Error:", error, errorInfo);
-//   }
-
-//   handleRetry = () => {
-//     this.setState({ hasError: false, error: null });
-//     window.location.reload();
-//   };
-
-//   handleContactSupport = () => {
-//     const subject = encodeURIComponent("DP Approval Screen Error");
-//     const body = encodeURIComponent(
-//       `Error: ${this.state.error?.message}\n\nUser Agent: ${navigator.userAgent}`
-//     );
-//     window.location.href = `mailto:support@example.com?subject=${subject}&body=${body}`;
-//   };
-
-//   render() {
-//     if (this.state.hasError) {
-//       return (
-//         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-//           <div className="nsdl-card p-8 max-w-md text-center">
-//             <ShieldIcon className="w-12 h-12 text-red-500 mx-auto mb-4" />
-//             <h3 className="nsdl-heading-3 text-gray-900 mb-2">
-//               Something went wrong
-//             </h3>
-//             <p className="text-gray-600 mb-6">
-//               We encountered an error while loading the DP approval screen.
-//             </p>
-//             <div className="space-y-3">
-//               <button
-//                 onClick={this.handleRetry}
-//                 className="px-6 py-2.5 nsdl-btn-primary rounded-lg w-full"
-//               >
-//                 Reload Page
-//               </button>
-//               <button
-//                 onClick={this.handleContactSupport}
-//                 className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg w-full hover:bg-gray-300 transition-colors"
-//               >
-//                 Contact Support
-//               </button>
-//             </div>
-//             <p className="text-xs text-gray-400 mt-4">
-//               Error: {this.state.error?.message}
-//             </p>
-//           </div>
-//         </div>
-//       );
-//     }
-
-//     return this.props.children;
-//   }
-// }
-
-// // --- LOADING SKELETONS ---
-// const StatsSkeleton: React.FC = () => (
-//   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-//     {Array.from({ length: 4 }).map((_, i) => (
-//       <div key={i} className="nsdl-card p-6 animate-pulse">
-//         <div className="flex items-center">
-//           <div className="p-3 bg-gray-200 rounded-lg"></div>
-//           <div className="ml-4">
-//             <div className="h-4 bg-gray-200 rounded w-16 mb-2"></div>
-//             <div className="h-6 bg-gray-200 rounded w-8"></div>
-//           </div>
-//         </div>
-//       </div>
-//     ))}
-//   </div>
-// );
-
-// const DpListSkeleton: React.FC = () => (
-//   <div className="space-y-2">
-//     {Array.from({ length: 5 }).map((_, i) => (
-//       <div key={i} className="nsdl-card p-6 animate-pulse">
-//         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-//           <div className="h-4 bg-gray-200 rounded"></div>
-//           <div className="h-4 bg-gray-200 rounded"></div>
-//           <div className="h-4 bg-gray-200 rounded"></div>
-//           <div className="h-4 bg-gray-200 rounded"></div>
-//           <div className="h-4 bg-gray-200 rounded w-20"></div>
-//           <div className="h-4 bg-gray-200 rounded w-24"></div>
-//         </div>
-//       </div>
-//     ))}
-//   </div>
-// );
-
-// // --- DP LIST ITEM COMPONENT ---
-// interface DpListItemProps {
-//   dp: DpDetail;
-//   onAction: (dp: DpDetail, action: "approve" | "reject" | "view") => void;
-//   isProcessing: boolean;
-// }
-
-// const DpListItem: React.FC<DpListItemProps> = ({
-//   dp,
-//   onAction,
-//   isProcessing,
-// }) => {
-//   if (!dp) {
-//     return null;
-//   }
-
-//   const getStatusClasses = (status: DpDetail["status"]) => {
-//     switch (normalizeStatus(status)) {
-//       case "approved":
-//         return "bg-green-100 text-green-800 border border-green-200";
-//       case "pending":
-//         return "bg-yellow-100 text-yellow-800 border border-yellow-200";
-//       case "rejected":
-//         return "bg-red-100 text-red-800 border border-red-200";
-//       default:
-//         return "bg-gray-100 text-gray-800 border border-gray-200";
-//     }
-//   };
-
-//   const formattedDate = dp.updated_at
-//     ? new Date(dp.updated_at).toLocaleDateString("en-US", {
-//         year: "numeric",
-//         month: "short",
-//         day: "numeric",
-//       })
-//     : "N/A";
-
-//   return (
-//     <div className="nsdl-card p-6 mb-4 hover:shadow-md transition-shadow duration-200">
-//       <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-//         {/* DP Name */}
-//         <div className="font-semibold text-gray-900 truncate">
-//           {dp.dp_name || "Unnamed DP"}
-//         </div>
-
-//         {/* DP ID */}
-//         <div className="font-mono text-sm truncate">{dp.id || "N/A"}</div>
-
-//         {/* IP Address */}
-//         <div className="text-gray-900">{dp.ip_address || "N/A"}</div>
-
-//         {/* Last Updated */}
-//         <div className="text-gray-900">{formattedDate}</div>
-
-//         {/* Status */}
-//         <div>
-//           <div
-//             className={`px-3 py-1.5 text-xs font-medium rounded-full inline-block ${getStatusClasses(
-//               dp.status
-//             )}`}
-//           >
-//             {formatStatus(dp.status)}
-//           </div>
-//         </div>
-
-//         {/* Actions */}
-//         <div>
-//           <div className="flex items-center space-x-2">
-//             <button
-//               onClick={() => onAction(dp, "view")}
-//               disabled={isProcessing}
-//               className="px-3 py-1.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-//             >
-//               <EyeIcon className="w-3 h-3 mr-1" />
-//               View
-//             </button>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// // --- DP DETAIL MODAL COMPONENT ---
-// interface DpDetailModalProps {
-//   dp: DpDetail;
-//   onClose: () => void;
-//   onValidate: () => void;
-//   onAction: (dp: DpDetail, action: "approve" | "reject") => void;
-//   isProcessing: boolean;
-// }
-
-// const DpDetailModal: React.FC<DpDetailModalProps> = ({
-//   dp,
-//   onClose,
-//   onValidate,
-//   onAction,
-//   isProcessing,
-// }) => {
-//   if (!dp) {
-//     return null;
-//   }
-
-//   const getStatusClasses = (status: DpDetail["status"]) => {
-//     switch (normalizeStatus(status)) {
-//       case "approved":
-//         return "bg-green-100 text-green-800 border border-green-200";
-//       case "pending":
-//         return "bg-yellow-100 text-yellow-800 border border-yellow-200";
-//       case "rejected":
-//         return "bg-red-100 text-red-800 border border-red-200";
-//       default:
-//         return "bg-gray-100 text-gray-800 border border-gray-200";
-//     }
-//   };
-
-//   const getEnvironmentBadgeColor = (env: string) => {
-//     switch (env?.toUpperCase()) {
-//       case "UAT":
-//         return "bg-blue-100 text-blue-800 border border-blue-200";
-//       case "STAGING":
-//         return "bg-purple-100 text-purple-800 border border-purple-200";
-//       case "PRODUCTION":
-//         return "bg-green-100 text-green-800 border border-green-200";
-//       default:
-//         return "bg-gray-100 text-gray-800 border border-gray-200";
-//     }
-//   };
-
-//   const formattedCreatedDate = dp.created_at
-//     ? new Date(dp.created_at).toLocaleDateString("en-US", {
-//         year: "numeric",
-//         month: "long",
-//         day: "numeric",
-//         hour: "2-digit",
-//         minute: "2-digit",
-//       })
-//     : "N/A";
-
-//   const formattedUpdatedDate = dp.updated_at
-//     ? new Date(dp.updated_at).toLocaleDateString("en-US", {
-//         year: "numeric",
-//         month: "long",
-//         day: "numeric",
-//         hour: "2-digit",
-//         minute: "2-digit",
-//       })
-//     : "N/A";
-
-//   return (
-//     <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
-//       <div className="nsdl-card w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-//         <div className="p-6 border-b border-gray-200">
-//           <div className="flex items-center justify-between">
-//             <div className="flex items-center">
-//               <div className="p-2 bg-blue-100 rounded-lg">
-//                 <ServerIcon className="w-6 h-6 text-blue-600" />
-//               </div>
-//               <div className="ml-4">
-//                 <h3 className="nsdl-heading-3 text-gray-900">DP Details</h3>
-//                 <p className="text-sm text-gray-500 mt-1">
-//                   {dp.dp_name || "Unnamed DP"}
-//                 </p>
-//               </div>
-//             </div>
-//             <div className="flex items-center space-x-2">
-//               <span
-//                 className={`px-3 py-1.5 text-xs font-medium rounded-full ${getStatusClasses(
-//                   dp.status
-//                 )}`}
-//               >
-//                 {formatStatus(dp.status)}
-//               </span>
-//               <span
-//                 className={`px-3 py-1 text-xs font-medium rounded-full ${getEnvironmentBadgeColor(
-//                   dp.environment
-//                 )}`}
-//               >
-//                 {dp.environment || "UAT"}
-//               </span>
-//               <button
-//                 onClick={onClose}
-//                 className="text-gray-400 hover:text-gray-600 transition-colors ml-2"
-//               >
-//                 <XIcon className="w-5 h-5" />
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-
-//         <div className="p-6">
-//           <div className="space-y-8">
-//             {/* Basic Information */}
-//             <div>
-//               <h4 className="nsdl-body-bold text-gray-700 mb-4">
-//                 Basic Information
-//               </h4>
-//               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//                 <div>
-//                   <label className="nsdl-label text-xs">DP Name</label>
-//                   <p className="nsdl-body font-semibold">
-//                     {dp.dp_name || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">DP ID</label>
-//                   <p className="nsdl-body font-mono">{dp.id || "N/A"}</p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">IP Address</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <ServerIcon className="w-3 h-3 mr-1" />
-//                     {dp.ip_address || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Callback URL</label>
-//                   <p className="nsdl-body truncate">
-//                     {dp.callback_url || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Email</label>
-//                   <p className="flex items-center">{dp.email_id}</p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Environment</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <span
-//                       className={`px-2 py-1 text-xs rounded ${getEnvironmentBadgeColor(
-//                         dp.environment
-//                       )}`}
-//                     >
-//                       {dp.environment || "UAT"}
-//                     </span>
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">
-//                     Certificate Serial
-//                   </label>
-//                   <p className="nsdl-body font-mono flex items-center">
-//                     <CertificateIcon className="w-3 h-3 mr-1" />
-//                     {dp.cert_serial_number || "Not Available"}
-//                   </p>
-//                 </div>
-//               </div>
-//             </div>
-
-//             {/* Business Information */}
-//             <div>
-//               <h4 className="nsdl-body-bold text-gray-700 mb-4 flex items-center">
-//                 <BusinessIcon className="w-4 h-4 mr-2" />
-//                 Business Information
-//               </h4>
-//               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//                 <div>
-//                   <label className="nsdl-label text-xs">CM BP ID</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <BusinessIcon className="w-3 h-3 mr-1" />
-//                     {dp.cm_bp_id || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Segment</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <SegmentIcon className="w-3 h-3 mr-1" />
-//                     {dp.segment || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Exchange Code</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <ExchangeIcon className="w-3 h-3 mr-1" />
-//                     {dp.exchange_code || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">
-//                     Business Lead Name
-//                   </label>
-//                   <p className="nsdl-body flex items-center">
-//                     <PeopleIcon className="w-3 h-3 mr-1" />
-//                     {dp.business_lead_name || "N/A"}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">
-//                     Technical Lead Name
-//                   </label>
-//                   <p className="nsdl-body flex items-center">
-//                     <PeopleIcon className="w-3 h-3 mr-1" />
-//                     {dp.technical_lead_name || "N/A"}
-//                   </p>
-//                 </div>
-//               </div>
-//             </div>
-
-//             {/* Timestamps & Metadata */}
-//             <div>
-//               <h4 className="nsdl-body-bold text-gray-700 mb-4">
-//                 Timestamps & Metadata
-//               </h4>
-//               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//                 <div>
-//                   <label className="nsdl-label text-xs">Created At</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <CalendarIcon className="w-3 h-3 mr-1" />
-//                     {formattedCreatedDate}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Last Updated</label>
-//                   <p className="nsdl-body flex items-center">
-//                     <CalendarIcon className="w-3 h-3 mr-1" />
-//                     {formattedUpdatedDate}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">RSA Key Status</label>
-//                   <p className="nsdl-body">
-//                     <span
-//                       className={`px-2 py-1 text-xs rounded ${getStatusClasses(
-//                         dp.rsa_key_status
-//                       )}`}
-//                     >
-//                       {formatStatus(dp.rsa_key_status)}
-//                     </span>
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <label className="nsdl-label text-xs">Requestor ID</label>
-//                   <p className="nsdl-body font-mono">
-//                     {dp.requestor_id || "N/A"}
-//                   </p>
-//                 </div>
-//               </div>
-//             </div>
-
-//             {/* Validation Section */}
-//             <div className="pt-6 border-t border-gray-200">
-//               <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-//                 <div className="flex items-center">
-//                   <ShieldIcon className="w-5 h-5 text-blue-600 mr-3" />
-//                   <div>
-//                     <p className="nsdl-body-bold">DP Validation</p>
-//                     <p className="text-sm text-gray-500">
-//                       Validate the DP configuration before approval
-//                     </p>
-//                   </div>
-//                 </div>
-//                 <button
-//                   onClick={onValidate}
-//                   className="px-6 py-2.5 nsdl-btn-primary rounded-lg transition-colors flex items-center"
-//                 >
-//                   <ShieldIcon className="w-4 h-4 mr-2" />
-//                   Validate
-//                 </button>
-//               </div>
-//             </div>
-
-//             {/* Action Buttons - Only show for pending status */}
-//             {normalizeStatus(dp.status) === "pending" && (
-//               <div className="pt-4 border-t border-gray-200">
-//                 <div className="flex justify-end space-x-3">
-//                   <button
-//                     onClick={() => onAction(dp, "reject")}
-//                     disabled={isProcessing}
-//                     className="px-6 py-2.5 nsdl-btn-secondary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center min-w-[120px] justify-center"
-//                   >
-//                     {isProcessing ? (
-//                       <>
-//                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-//                         Processing...
-//                       </>
-//                     ) : (
-//                       <>
-//                         <XIcon className="w-4 h-4 mr-2" />
-//                         Reject
-//                       </>
-//                     )}
-//                   </button>
-//                   <button
-//                     onClick={() => onAction(dp, "approve")}
-//                     disabled={isProcessing}
-//                     className="px-6 py-2.5 nsdl-btn-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center min-w-[120px] justify-center"
-//                   >
-//                     {isProcessing ? (
-//                       <>
-//                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-//                         Processing...
-//                       </>
-//                     ) : (
-//                       <>
-//                         <CheckIcon className="w-4 h-4 mr-2" />
-//                         Approve
-//                       </>
-//                     )}
-//                   </button>
-//                 </div>
-//                 <p className="text-sm text-gray-500 mt-2 text-right">
-//                   This will approve/reject the DP for {dp.environment || "UAT"}{" "}
-//                   environment
-//                 </p>
-//               </div>
-//             )}
-
-//             {/* Status Message for non-pending DPs */}
-//             {normalizeStatus(dp.status) !== "pending" && (
-//               <div className="pt-4 border-t border-gray-200">
-//                 <div className="bg-gray-50 p-4 rounded-lg">
-//                   <div className="flex items-center">
-//                     {normalizeStatus(dp.status) === "approved" ? (
-//                       <>
-//                         <CheckIcon className="w-5 h-5 text-emerald-600 mr-3" />
-//                         <div>
-//                           <p className="nsdl-body-bold text-emerald-700">
-//                             DP Already Approved for {dp.environment || "UAT"}
-//                           </p>
-//                           <p className="text-sm text-gray-500">
-//                             This DP has been approved on {formattedUpdatedDate}
-//                           </p>
-//                           {dp.requestor_id && (
-//                             <p className="text-sm text-gray-500 mt-1">
-//                               Requestor ID: {dp.requestor_id}
-//                             </p>
-//                           )}
-//                         </div>
-//                       </>
-//                     ) : (
-//                       <>
-//                         <XIcon className="w-5 h-5 text-red-600 mr-3" />
-//                         <div>
-//                           <p className="nsdl-body-bold text-red-700">
-//                             DP {formatStatus(dp.status)} for{" "}
-//                             {dp.environment || "UAT"}
-//                           </p>
-//                           <p className="text-sm text-gray-500">
-//                             This DP was {normalizeStatus(dp.status)} on{" "}
-//                             {formattedUpdatedDate}
-//                           </p>
-//                         </div>
-//                       </>
-//                     )}
-//                   </div>
-//                 </div>
-//               </div>
-//             )}
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// // --- MAIN COMPONENT: DpApprovalScreen WITH LIVE SEARCH ---
-// export const DpApprovalScreen: React.FC = () => {
-//   const [dpDetails, setDpDetails] = useState<DpDetail[]>([]);
-//   const [isLoading, setIsLoading] = useState(false);
-//   const [errors, setErrors] = useState<AppError[]>([]);
-//   const [toasts, setToasts] = useState<ToastProps[]>([]);
-//   const [processingId, setProcessingId] = useState<string | null>(null);
-//   const [selectedDp, setSelectedDp] = useState<DpDetail | null>(null);
-//   const [statusFilter, setStatusFilter] = useState<"all" | DpDetail["status"]>(
-//     "all"
-//   );
-//   const [environmentFilter, setEnvironmentFilter] = useState<string>("UAT");
-//   const [searchTerm, setSearchTerm] = useState("");
-//   const [searchLoading, setSearchLoading] = useState(false);
-
-//   // Pagination state
-//   const [pagination, setPagination] = useState<PaginationInfo>({
-//     totalRecords: 0,
-//     totalPages: 0,
-//     currentPage: 1,
-//     limit: 10,
-//   });
-//   const [currentPage, setCurrentPage] = useState(1);
-//   const [pageSize, setPageSize] = useState(10);
-
-//   // Stats state
-//   const [stats, setStats] = useState({
-//     pending: 0,
-//     approved: 0,
-//     rejected: 0,
-//     total: 0,
-//   });
-
-//   // Refs for debouncing
-//   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-//   // Add error utility
-//   const addError = useCallback((error: Omit<AppError, "id" | "timestamp">) => {
-//     const newError: AppError = {
-//       ...error,
-//       id: Date.now().toString(),
-//       timestamp: new Date().toISOString(),
-//     };
-//     setErrors((prev) => [newError, ...prev.slice(0, 4)]);
-//   }, []);
-
-//   // Add toast utility
-//   const addToast = useCallback((toast: Omit<ToastProps, "id" | "onClose">) => {
-//     const id = Date.now().toString();
-//     setToasts((prev) => [
-//       ...prev,
-//       { ...toast, id, onClose: () => removeToast(id) },
-//     ]);
-//   }, []);
-
-//   const removeToast = useCallback((id: string) => {
-//     setToasts((prev) => prev.filter((toast) => toast.id !== id));
-//   }, []);
-
-//   // Load DP details with pagination
-//   const loadDpDetails = useCallback(
-//     async (page: number = currentPage, limit: number = pageSize) => {
-//       setIsLoading(true);
-//       setErrors([]);
-
-//       // Only set search loading if there's a search term
-//       if (searchTerm.trim()) {
-//         setSearchLoading(true);
-//       }
-
-//       const result = await fetchDpDetailsWithPagination({
-//         environment: environmentFilter,
-//         status: statusFilter === "all" ? undefined : statusFilter,
-//         page: page,
-//         limit: limit,
-//         searchTerm: searchTerm.trim() || undefined,
-//       });
-
-//       if ("error" in result) {
-//         addError(result.error);
-//         setDpDetails([]);
-//         setPagination({
-//           totalRecords: 0,
-//           totalPages: 0,
-//           currentPage: page,
-//           limit: limit,
-//         });
-//         setStats({ pending: 0, approved: 0, rejected: 0, total: 0 });
-//       } else {
-//         setDpDetails(result.data);
-//         setPagination(result.pagination);
-//         setCurrentPage(page);
-
-//         // Calculate stats from the current data
-//         const pendingCount = result.data.filter(
-//           (dp) => normalizeStatus(dp.status) === "pending"
-//         ).length;
-//         const approvedCount = result.data.filter(
-//           (dp) => normalizeStatus(dp.status) === "approved"
-//         ).length;
-//         const rejectedCount = result.data.filter(
-//           (dp) => normalizeStatus(dp.status) === "rejected"
-//         ).length;
-
-//         setStats({
-//           pending: pendingCount,
-//           approved: approvedCount,
-//           rejected: rejectedCount,
-//           total: result.data.length,
-//         });
-
-//         // Only show toast for search results or no results
-//         if (searchTerm.trim() && result.data.length === 0) {
-//           addToast({
-//             message: `No DPs found for "${searchTerm}"`,
-//             type: "info",
-//             duration: 3000,
-//           });
-//         } else if (result.data.length === 0) {
-//           addToast({
-//             message: "No DP records found",
-//             type: "info",
-//             duration: 3000,
-//           });
-//         }
-//       }
-
-//       setIsLoading(false);
-//       setSearchLoading(false);
-//     },
-//     [
-//       environmentFilter,
-//       statusFilter,
-//       searchTerm,
-//       currentPage,
-//       pageSize,
-//       addError,
-//       addToast,
-//     ]
-//   );
-
-//   // Handle live search with debouncing
-//   const handleSearchChange = (value: string) => {
-//     setSearchTerm(value);
-
-//     // Clear previous timeout
-//     if (searchTimeoutRef.current) {
-//       clearTimeout(searchTimeoutRef.current);
-//     }
-
-//     // Show loading indicator for non-empty queries
-//     if (value.trim().length > 0) {
-//       setSearchLoading(true);
-//     }
-
-//     // Set new timeout for debounced search (500ms delay)
-//     searchTimeoutRef.current = setTimeout(() => {
-//       setCurrentPage(1);
-//       loadDpDetails(1, pageSize);
-//     }, 500);
-//   };
-
-//   // Handle clear search
-//   const handleClearSearch = () => {
-//     setSearchTerm("");
-//     setCurrentPage(1);
-//     loadDpDetails(1, pageSize);
-
-//     // Clear timeout if exists
-//     if (searchTimeoutRef.current) {
-//       clearTimeout(searchTimeoutRef.current);
-//       searchTimeoutRef.current = null;
-//     }
-//   };
-
-//   // Handle keyboard shortcuts
-//   const handleKeyDown = (e: React.KeyboardEvent) => {
-//     if (e.key === "Enter") {
-//       // Clear any pending debounced search
-//       if (searchTimeoutRef.current) {
-//         clearTimeout(searchTimeoutRef.current);
-//         searchTimeoutRef.current = null;
-//       }
-
-//       // Trigger immediate search
-//       setCurrentPage(1);
-//       loadDpDetails(1, pageSize);
-//     }
-
-//     if (e.key === "Escape" && searchTerm) {
-//       handleClearSearch();
-//     }
-//   };
-
-//   // Handle page change
-//   const handlePageChange = (page: number) => {
-//     if (page >= 1 && page <= pagination.totalPages) {
-//       loadDpDetails(page, pageSize);
-//     }
-//   };
-
-//   // Handle page size change
-//   const handlePageSizeChange = (size: number) => {
-//     setPageSize(size);
-//     loadDpDetails(1, size);
-//   };
-
-//   // Handle error actions
-//   const handleErrorAction = useCallback(
-//     (errorId: string, action?: AppError["action"]) => {
-//       const error = errors.find((e) => e.id === errorId);
-//       if (!error) return;
-
-//       switch (action) {
-//         case "retry":
-//           loadDpDetails(currentPage, pageSize);
-//           break;
-//         case "refresh":
-//           window.location.reload();
-//           break;
-//         case "contact_support":
-//           window.location.href = `mailto:support@example.com?subject=DP%20Approval%20Error&body=${encodeURIComponent(
-//             error.message
-//           )}`;
-//           break;
-//         default:
-//           break;
-//       }
-
-//       setErrors((prev) => prev.filter((e) => e.id !== errorId));
-//     },
-//     [errors, currentPage, pageSize, loadDpDetails]
-//   );
-
-//   // Initialize on component mount
-//   useEffect(() => {
-//     loadDpDetails(1, pageSize);
-
-//     // Cleanup timeout on unmount
-//     return () => {
-//       if (searchTimeoutRef.current) {
-//         clearTimeout(searchTimeoutRef.current);
-//       }
-//     };
-//   }, []);
-
-//   // Reload when filters change
-//   useEffect(() => {
-//     setCurrentPage(1);
-//     loadDpDetails(1, pageSize);
-//   }, [statusFilter, environmentFilter]);
-
-//   const handleAction = useCallback(
-//     async (dp: DpDetail, action: "approve" | "reject" | "view") => {
-//       if (action === "view") {
-//         setSelectedDp(dp);
-//         return;
-//       }
-
-//       setProcessingId(dp.id);
-
-//       try {
-//         const result =
-//           action === "approve"
-//             ? await approveDp(dp.id, dp.environment || "UAT")
-//             : await rejectDp(dp.id, dp.environment || "UAT");
-
-//         if (result.success) {
-//           // Show success toast
-//           addToast({
-//             message: `Successfully ${
-//               action === "approve" ? "approved" : "rejected"
-//             } ${dp.dp_name || "DP"}`,
-//             type: "success",
-//             duration: 3000,
-//           });
-
-//           // Close the modal
-//           setSelectedDp(null);
-
-//           // Reload data
-//           await loadDpDetails(currentPage, pageSize);
-
-//           // If we're on a page that might become empty after approval/reject,
-//           // adjust the page number if needed
-//           if (dpDetails.length <= 1 && currentPage > 1) {
-//             const newPage = currentPage - 1;
-//             loadDpDetails(newPage, pageSize);
-//           }
-//         } else if (result.error) {
-//           // Show error toast
-//           addToast({
-//             message: result.error.message,
-//             type: "error",
-//             duration: 5000,
-//           });
-//         }
-//       } catch (err) {
-//         // Show error toast
-//         const errorMessage =
-//           err instanceof Error ? err.message : "Unknown error occurred";
-//         addToast({
-//           message: `Failed to ${action} DP: ${errorMessage}`,
-//           type: "error",
-//           duration: 5000,
-//         });
-//       } finally {
-//         setProcessingId(null);
-//       }
-//     },
-//     [currentPage, pageSize, loadDpDetails, addToast, dpDetails]
-//   );
-
-//   const handleValidate = () => {
-//     alert(`Validating DP: ${selectedDp?.dp_name}`);
-//   };
-
-//   // Generate page numbers for pagination
-//   const getPageNumbers = () => {
-//     const pages = [];
-//     const maxPagesToShow = 5;
-
-//     if (pagination.totalPages <= maxPagesToShow) {
-//       for (let i = 1; i <= pagination.totalPages; i++) {
-//         pages.push(i);
-//       }
-//     } else {
-//       let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
-//       let endPage = startPage + maxPagesToShow - 1;
-
-//       if (endPage > pagination.totalPages) {
-//         endPage = pagination.totalPages;
-//         startPage = Math.max(1, endPage - maxPagesToShow + 1);
-//       }
-
-//       for (let i = startPage; i <= endPage; i++) {
-//         pages.push(i);
-//       }
-//     }
-
-//     return pages;
-//   };
-
-//   const startRecord = (currentPage - 1) * pagination.limit + 1;
-//   const endRecord = Math.min(
-//     currentPage * pagination.limit,
-//     pagination.totalRecords
-//   );
-
-//   return (
-//     <DpApprovalErrorBoundary>
-//       <div className="min-h-screen bg-gray-50 py-10">
-//         {/* Toast Container */}
-//         <ToastContainer toasts={toasts} onClose={removeToast} />
-
-//         {/* Error Display Area */}
-//         {errors.length > 0 && (
-//           <div className="max-w-full mx-auto px-6 sm:px-8 lg:px-10 mb-6 space-y-2">
-//             {errors.map((error) => (
-//               <ErrorDisplay
-//                 key={error.id}
-//                 error={error}
-//                 onAction={(action) =>
-//                   error.id && handleErrorAction(error.id!, action)
-//                 }
-//                 onDismiss={() =>
-//                   error.id &&
-//                   setErrors((prev) => prev.filter((e) => e.id !== error.id))
-//                 }
-//               />
-//             ))}
-//           </div>
-//         )}
-
-//         <div className="max-w-full mx-auto px-6 sm:px-8 lg:px-10">
-//           {/* Header */}
-//           <div className="mb-10">
-//             <h1 className="nsdl-heading-1 text-gray-900 mb-3">
-//               DP Approval Management
-//             </h1>
-//             <p className="nsdl-body text-gray-600">
-//               Review and approve/reject Depository Participant registrations for
-//               UAT and STAGING environments
-//             </p>
-//           </div>
-
-//           {/* Stats Cards */}
-//           {isLoading ? (
-//             <StatsSkeleton />
-//           ) : (
-//             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-//               <div className="nsdl-card p-6">
-//                 <div className="flex items-center">
-//                   <div className="p-3 bg-amber-100 rounded-lg">
-//                     <ServerIcon className="w-6 h-6 text-amber-600" />
-//                   </div>
-//                   <div className="ml-4">
-//                     <p className="nsdl-body text-gray-600">Pending</p>
-//                     <p className="text-2xl font-semibold text-gray-900">
-//                       {stats.pending}
-//                     </p>
-//                   </div>
-//                 </div>
-//               </div>
-//               <div className="nsdl-card p-6">
-//                 <div className="flex items-center">
-//                   <div className="p-3 bg-emerald-100 rounded-lg">
-//                     <CheckIcon className="w-6 h-6 text-emerald-600" />
-//                   </div>
-//                   <div className="ml-4">
-//                     <p className="nsdl-body text-gray-600">Approved</p>
-//                     <p className="text-2xl font-semibold text-gray-900">
-//                       {stats.approved}
-//                     </p>
-//                   </div>
-//                 </div>
-//               </div>
-//               <div className="nsdl-card p-6">
-//                 <div className="flex items-center">
-//                   <div className="p-3 bg-red-100 rounded-lg">
-//                     <XIcon className="w-6 h-6 text-red-600" />
-//                   </div>
-//                   <div className="ml-4">
-//                     <p className="nsdl-body text-gray-600">Rejected</p>
-//                     <p className="text-2xl font-semibold text-gray-900">
-//                       {stats.rejected}
-//                     </p>
-//                   </div>
-//                 </div>
-//               </div>
-//               <div className="nsdl-card p-6">
-//                 <div className="flex items-center">
-//                   <div className="p-3 bg-gray-100 rounded-lg">
-//                     <ServerIcon className="w-6 h-6 text-gray-600" />
-//                   </div>
-//                   <div className="ml-4">
-//                     <p className="nsdl-body text-gray-600">Total</p>
-//                     <p className="text-2xl font-semibold text-gray-900">
-//                       {stats.total}
-//                     </p>
-//                   </div>
-//                 </div>
-//               </div>
-//             </div>
-//           )}
-
-//           {/* Filters and Controls */}
-//           <div className="nsdl-card p-6 mb-6">
-//             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-//               <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-//                 <div className="flex items-center">
-//                   <FilterIcon className="w-5 h-5" />
-//                   <span className="ml-3 nsdl-body-bold text-gray-700">
-//                     Status:
-//                   </span>
-//                   <div className="flex flex-wrap gap-2 ml-4">
-//                     {["all", "pending", "approved", "rejected"].map(
-//                       (status) => (
-//                         <button
-//                           key={status}
-//                           onClick={() =>
-//                             setStatusFilter(
-//                               status === "all"
-//                                 ? "all"
-//                                 : (status as DpDetail["status"])
-//                             )
-//                           }
-//                           className={`px-4 py-2.5 nsdl-body rounded-lg transition-colors duration-200 ${
-//                             statusFilter === (status === "all" ? "all" : status)
-//                               ? "nsdl-btn-primary"
-//                               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-//                           }`}
-//                         >
-//                           {status === "all" ? "All" : formatStatus(status)}
-//                         </button>
-//                       )
-//                     )}
-//                   </div>
-//                 </div>
-//                 <div className="flex items-center">
-//                   <ServerIcon className="w-5 h-5" />
-//                   <span className="ml-3 nsdl-body-bold text-gray-700">
-//                     Environment:
-//                   </span>
-//                   <div className="flex flex-wrap gap-2 ml-4">
-//                     {["UAT", "STAGING"].map((env) => (
-//                       <button
-//                         key={env}
-//                         onClick={() => setEnvironmentFilter(env)}
-//                         className={`px-4 py-2.5 nsdl-body rounded-lg transition-colors duration-200 ${
-//                           environmentFilter === env
-//                             ? env === "UAT"
-//                               ? "bg-blue-100 text-blue-700 border border-blue-300"
-//                               : "bg-purple-100 text-purple-700 border border-purple-300"
-//                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-//                         }`}
-//                       >
-//                         {env}
-//                       </button>
-//                     ))}
-//                   </div>
-//                 </div>
-//               </div>
-
-//               <div className="flex flex-col sm:flex-row items-center gap-4">
-//                 {/* Live Search Box */}
-//                 <div className="flex items-center gap-3 w-full sm:w-auto">
-//                   <div className="relative flex-1 sm:flex-initial min-w-[300px]">
-//                     <input
-//                       type="text"
-//                       placeholder="Search by DP Name or ID"
-//                       className="pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full"
-//                       value={searchTerm}
-//                       onChange={(e) => handleSearchChange(e.target.value)}
-//                       onKeyDown={handleKeyDown}
-//                       disabled={isLoading}
-//                     />
-//                     <SearchIcon className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-
-//                     {/* Loading indicator */}
-//                     {searchLoading && (
-//                       <div className="absolute right-10 top-3">
-//                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-//                       </div>
-//                     )}
-
-//                     {/* Clear button */}
-//                     {searchTerm && (
-//                       <button
-//                         onClick={handleClearSearch}
-//                         className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
-//                         disabled={isLoading}
-//                         title="Clear search"
-//                       >
-//                         <XIcon className="w-4 h-4" />
-//                       </button>
-//                     )}
-//                   </div>
-
-//                   {/* Search status indicator */}
-//                   {searchTerm && (
-//                     <div className="text-sm text-gray-500 hidden sm:block">
-//                       {dpDetails.length} result
-//                       {dpDetails.length !== 1 ? "s" : ""} found
-//                       {searchTerm && ` for "${searchTerm}"`}
-//                     </div>
-//                   )}
-//                 </div>
-
-//                 {/* Refresh Button */}
-//                 <div className="flex items-center">
-//                   <button
-//                     onClick={() => loadDpDetails(currentPage, pageSize)}
-//                     disabled={isLoading || searchLoading}
-//                     className="flex items-center px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-//                     title="Refresh data"
-//                   >
-//                     <RefreshIcon className="w-4 h-4 mr-2" />
-//                     Refresh
-//                   </button>
-//                 </div>
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* Table Headings */}
-//           <div className="bg-gray-50 rounded-t-lg border border-gray-200 p-4 mb-2">
-//             <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-//               <div className="text-sm font-semibold text-gray-700">DP Name</div>
-//               <div className="text-sm font-semibold text-gray-700">DP ID</div>
-//               <div className="text-sm font-semibold text-gray-700">
-//                 IP Address
-//               </div>
-//               <div className="text-sm font-semibold text-gray-700">
-//                 Last Updated
-//               </div>
-//               <div className="text-sm font-semibold text-gray-700">Status</div>
-//               <div className="text-sm font-semibold text-gray-700">Actions</div>
-//             </div>
-//           </div>
-
-//           {/* DP List */}
-//           {isLoading || searchLoading ? (
-//             <DpListSkeleton />
-//           ) : dpDetails.length > 0 ? (
-//             <>
-//               <div className="space-y-2">
-//                 {dpDetails.map((dp) => (
-//                   <DpListItem
-//                     key={`${dp.id}-${dp.environment}-${dp.updated_at}`}
-//                     dp={dp}
-//                     onAction={handleAction}
-//                     isProcessing={processingId === dp.id}
-//                   />
-//                 ))}
-//               </div>
-
-//               {/* Pagination Controls */}
-//               {pagination.totalPages > 0 && (
-//                 <div className="flex flex-col sm:flex-row items-center justify-between mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-//                   <div className="flex items-center mb-4 sm:mb-0">
-//                     <span className="text-sm text-gray-700 mr-3">
-//                       Rows per page:
-//                     </span>
-//                     <select
-//                       value={pageSize}
-//                       onChange={(e) =>
-//                         handlePageSizeChange(Number(e.target.value))
-//                       }
-//                       disabled={isLoading || searchLoading}
-//                       className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-//                     >
-//                       {[5, 10, 20, 50].map((size) => (
-//                         <option key={size} value={size}>
-//                           {size}
-//                         </option>
-//                       ))}
-//                     </select>
-//                     <span className="text-sm text-gray-600 ml-4">
-//                       Showing {startRecord} to {endRecord} of{" "}
-//                       {pagination.totalRecords} records
-//                     </span>
-//                   </div>
-
-//                   <div className="flex items-center space-x-2">
-//                     <button
-//                       onClick={() => handlePageChange(1)}
-//                       disabled={currentPage === 1 || isLoading || searchLoading}
-//                       className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-//                       title="First Page"
-//                     >
-//                       <ChevronDoubleLeftIcon className="w-4 h-4" />
-//                     </button>
-
-//                     <button
-//                       onClick={() => handlePageChange(currentPage - 1)}
-//                       disabled={currentPage === 1 || isLoading || searchLoading}
-//                       className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-//                       title="Previous Page"
-//                     >
-//                       <ChevronLeftIcon className="w-4 h-4" />
-//                     </button>
-
-//                     <div className="flex items-center space-x-1">
-//                       {getPageNumbers().map((page) => (
-//                         <button
-//                           key={page}
-//                           onClick={() => handlePageChange(page)}
-//                           disabled={isLoading || searchLoading}
-//                           className={`min-w-[36px] px-3 py-1.5 text-sm border rounded ${
-//                             currentPage === page
-//                               ? "bg-blue-600 text-white border-blue-600"
-//                               : "border-gray-300 hover:bg-gray-50"
-//                           }`}
-//                         >
-//                           {page}
-//                         </button>
-//                       ))}
-//                     </div>
-
-//                     <button
-//                       onClick={() => handlePageChange(currentPage + 1)}
-//                       disabled={
-//                         currentPage === pagination.totalPages ||
-//                         isLoading ||
-//                         searchLoading
-//                       }
-//                       className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-//                       title="Next Page"
-//                     >
-//                       <ChevronRightIcon className="w-4 h-4" />
-//                     </button>
-
-//                     <button
-//                       onClick={() => handlePageChange(pagination.totalPages)}
-//                       disabled={
-//                         currentPage === pagination.totalPages ||
-//                         isLoading ||
-//                         searchLoading
-//                       }
-//                       className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-//                       title="Last Page"
-//                     >
-//                       <ChevronDoubleRightIcon className="w-4 h-4" />
-//                     </button>
-//                   </div>
-//                 </div>
-//               )}
-//             </>
-//           ) : (
-//             <div className="nsdl-card p-12 text-center">
-//               <ServerIcon className="w-12 h-12 mx-auto text-gray-300" />
-//               <h3 className="mt-4 nsdl-heading-3 text-gray-900">
-//                 No DPs Found
-//               </h3>
-//               <p className="mt-2 text-gray-500 nsdl-body">
-//                 {searchTerm
-//                   ? "No DPs found matching your search criteria"
-//                   : "No DP records found. Ensure the backend has data."}
-//               </p>
-//               {searchTerm && (
-//                 <button
-//                   onClick={handleClearSearch}
-//                   className="mt-4 px-4 py-2 nsdl-btn-primary rounded-lg"
-//                 >
-//                   Clear Search
-//                 </button>
-//               )}
-//             </div>
-//           )}
-//         </div>
-
-//         {/* Detail View Modal */}
-//         {selectedDp && (
-//           <DpDetailModal
-//             dp={selectedDp}
-//             onClose={() => setSelectedDp(null)}
-//             onValidate={handleValidate}
-//             onAction={handleAction}
-//             isProcessing={processingId === selectedDp.id}
-//           />
-//         )}
-//       </div>
-//     </DpApprovalErrorBoundary>
-//   );
-// };
-
-// export default DpApprovalScreen;
-
 import React, { useState, useEffect, useCallback } from "react";
 import {
   MagnifyingGlassIcon,
@@ -4508,16 +18,16 @@ import {
 import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
-const APPROVE_BASE = "http://localhost:8000";
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const APPROVE_BASE = import.meta.env.VITE_API_BASE_URL;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Subscription {
-  name?: string;
+  service_name: string;
   service_id?: string;
   route_ids?: string[];
-  routes?: string[];
+  routes?: Array<{ route_name: string }>;
   callbacks?: { success: string; failure: string };
 }
 
@@ -4532,11 +42,23 @@ interface Project {
   last_name: string;
   mobile_no: string;
   email_id: string;
+  security?: {
+    signingKey?: string;
+    ipWhitelist?: string;
+    encryptionKey?: string;
+    signingKeyName?: string;
+    encryptionKeyName?: string;
+  };
+  credentials_management?: {
+    secretKey?: string;
+    publicKeyId?: string;
+  };
   subscriptions: Subscription[];
   status: string;
   created_by: string;
   created_at: string;
   updated_at: string;
+  reason?: string | null;
 }
 
 interface ApiResponse {
@@ -4544,6 +66,7 @@ interface ApiResponse {
   data: Project[];
   counts: {
     pending: string;
+    inprogress: string;
     approved: string;
     rejected: string;
     total: string;
@@ -4585,10 +108,14 @@ const normalizeStatus = (s: string) => s.toLowerCase();
 
 const formatDate = (iso: string) => {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-IN", {
+  const date = new Date(iso);
+  return date.toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
   });
 };
 
@@ -4656,7 +183,6 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 };
 
 // ─── Confirm Modal ────────────────────────────────────────────────────────────
-
 const ConfirmModal: React.FC<{
   type: "approve" | "reject";
   onConfirm: (reason?: string) => void;
@@ -4664,7 +190,17 @@ const ConfirmModal: React.FC<{
   loading: boolean;
 }> = ({ type, onConfirm, onClose, loading }) => {
   const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
   const isApprove = type === "approve";
+
+  const handleConfirm = () => {
+    if (!isApprove && !reason.trim()) {
+      setError("Please enter a rejection reason");
+      return;
+    }
+    setError("");
+    onConfirm(reason);
+  };
 
   return (
     <div
@@ -4679,7 +215,6 @@ const ConfirmModal: React.FC<{
       }}
     >
       <div style={{ position: "relative", marginTop: "36px" }}>
-        {/* Big floating icon */}
         <div
           style={{
             position: "absolute",
@@ -4740,7 +275,6 @@ const ConfirmModal: React.FC<{
             <XMarkIcon style={{ width: "20px", height: "20px" }} />
           </button>
 
-          {/* Icon */}
           <div
             style={{
               display: "flex",
@@ -4823,7 +357,7 @@ const ConfirmModal: React.FC<{
                 background: "#F9F9F9",
                 borderRadius: "12px",
                 padding: "16px",
-                marginBottom: "24px",
+                marginBottom: "16px",
               }}
             >
               <div
@@ -4852,17 +386,20 @@ const ConfirmModal: React.FC<{
                     fontFamily: "'Roboto Flex', sans-serif",
                   }}
                 >
-                  Reason
+                  Reason <span style={{ color: "#EF4444" }}>*</span>
                 </span>
               </div>
               <textarea
                 value={reason}
-                onChange={(e) => setReason(e.target.value)}
+                onChange={(e) => {
+                  setReason(e.target.value);
+                  if (error) setError("");
+                }}
                 placeholder="Enter rejection reason..."
                 rows={3}
                 style={{
                   width: "100%",
-                  border: "none",
+                  border: error ? "1px solid #EF4444" : "none",
                   background: "transparent",
                   fontFamily: "'Roboto Flex', sans-serif",
                   fontSize: "13px",
@@ -4872,6 +409,18 @@ const ConfirmModal: React.FC<{
                   boxSizing: "border-box",
                 }}
               />
+              {error && (
+                <div
+                  style={{
+                    color: "#EF4444",
+                    fontSize: "12px",
+                    marginTop: "8px",
+                    fontFamily: "'Roboto Flex', sans-serif",
+                  }}
+                >
+                  {error}
+                </div>
+              )}
             </div>
           )}
 
@@ -4883,23 +432,36 @@ const ConfirmModal: React.FC<{
             }}
           >
             <button
-              onClick={onClose}
+              onClick={() => {
+                onClose();
+              }}
               style={{
                 background: "none",
-                border: "none",
+                border: "1px solid #E5E7EB",
+                borderRadius: "10px",
+                padding: "12px 32px",
                 cursor: "pointer",
                 fontFamily: "'Roboto Flex', sans-serif",
-                fontSize: "13px",
-                fontWeight: 700,
+                fontSize: "14px",
+                fontWeight: 600,
                 color: "#6B7280",
-                letterSpacing: "0.8px",
+                letterSpacing: "0.5px",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#9CA3AF";
+                e.currentTarget.style.backgroundColor = "#F9FAFB";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#E5E7EB";
+                e.currentTarget.style.backgroundColor = "transparent";
               }}
             >
               CANCEL
             </button>
             <button
-              onClick={() => onConfirm(reason)}
-              disabled={loading || (!isApprove && !reason.trim())}
+              onClick={handleConfirm}
+              disabled={loading}
               style={{
                 background: loading
                   ? "#D1D5DB"
@@ -4923,13 +485,12 @@ const ConfirmModal: React.FC<{
     </div>
   );
 };
-
 // ─── Read-only Field ──────────────────────────────────────────────────────────
 
 const ReadonlyField: React.FC<{
   label: string;
   icon?: React.ReactNode;
-  value: string;
+  value: React.ReactNode;
 }> = ({ label, icon, value }) => (
   <div>
     <div
@@ -5085,6 +646,9 @@ const OrgDetailView: React.FC<{
   );
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [expandedSubscription, setExpandedSubscription] = useState<
+    number | null
+  >(null);
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
@@ -5094,7 +658,7 @@ const OrgDetailView: React.FC<{
   const handleApprove = async () => {
     setActionLoading(true);
     try {
-      const res = await fetch(`${APPROVE_BASE}/api/dp/approve`, {
+      const res = await fetch(`${APPROVE_BASE}/dp/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -5103,6 +667,7 @@ const OrgDetailView: React.FC<{
           serviceType: "all",
           organisation_id: project.organisation_id,
           email: project.email_id,
+          project_name: project.project_name,
         }),
       });
       const json = await res.json();
@@ -5119,14 +684,11 @@ const OrgDetailView: React.FC<{
   const handleReject = async (reason: string) => {
     setActionLoading(true);
     try {
-      const res = await fetch(
-        `${APPROVE_BASE}/api/projects/${project.id}/reject`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason }),
-        }
-      );
+      const res = await fetch(`${APPROVE_BASE}/projects/${project.id}/reject`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
       const json = await res.json();
       showToast(json.message || "Rejected successfully", true);
       setConfirmType(null);
@@ -5169,7 +731,6 @@ const OrgDetailView: React.FC<{
         </div>
       )}
 
-      {/* Top bar */}
       <div
         style={{
           background: "#FFF",
@@ -5272,7 +833,7 @@ const OrgDetailView: React.FC<{
               value={project.organisation_id}
             />
             <ReadonlyField
-              label="Organization Details"
+              label="Project Name"
               icon={<IconDoc />}
               value={project.project_name}
             />
@@ -5281,11 +842,11 @@ const OrgDetailView: React.FC<{
               icon={<IconHome />}
               value={project.organisation_type}
             />
-            <ReadonlyField
-              label="Select Role"
+            {/* <ReadonlyField
+              label="Role"
               icon={<IconCog />}
               value={project.role}
-            />
+            /> */}
             <ReadonlyField
               label="Email ID"
               icon={<IconMail />}
@@ -5298,6 +859,41 @@ const OrgDetailView: React.FC<{
             />
           </div>
         </div>
+
+        {/* <div
+          style={{
+            background: "#FFF",
+            borderRadius: "16px",
+            padding: "32px",
+            marginBottom: "24px",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+          }}
+        > */}
+        {/* <h2
+            style={{
+              fontFamily: "'Archivo', sans-serif",
+              fontSize: "22px",
+              fontWeight: 700,
+              color: "#1A1A1A",
+              margin: "0 0 28px",
+            }}
+          >
+            Basic Details
+          </h2> */}
+        {/* <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr",
+              gap: "20px",
+            }}
+          >
+            <ReadonlyField
+              label="Project Name"
+              icon={<IconDoc />}
+              value={project.project_name}
+            />
+          </div>
+        </div> */}
 
         {/* Security Management */}
         <div
@@ -5348,51 +944,158 @@ const OrgDetailView: React.FC<{
                     textTransform: "uppercase",
                   }}
                 >
-                  IP ADDRESS
+                  IP ADDRESSES
                 </span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                {["192.168.1.1", "192.168.1.2"].map((ip) => (
+                {project.security?.ipWhitelist ? (
+                  project.security.ipWhitelist.split(",").map((ip) => (
+                    <span
+                      key={ip.trim()}
+                      style={{
+                        background: "#F5F5F0",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "8px",
+                        padding: "6px 12px",
+                        fontSize: "13px",
+                        color: "#374151",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      {ip.trim()}
+                    </span>
+                  ))
+                ) : (
                   <span
-                    key={ip}
                     style={{
-                      background: "#F5F5F0",
-                      border: "1px solid #E5E7EB",
-                      borderRadius: "8px",
-                      padding: "6px 12px",
+                      color: "#9CA3AF",
                       fontSize: "13px",
-                      color: "#374151",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
+                      fontStyle: "italic",
                     }}
                   >
-                    {ip}{" "}
-                    <XMarkIcon
-                      style={{
-                        width: "12px",
-                        height: "12px",
-                        color: "#9CA3AF",
-                      }}
-                    />
+                    No IP addresses configured
                   </span>
-                ))}
+                )}
               </div>
             </div>
+
             <ReadonlyField
               label="Encryption Public Key"
               icon={<IconShield />}
-              value="Public key on file"
+              value={project.security?.encryptionKeyName || "No Encryption Key"}
             />
-            <ReadonlyField
-              label="*** Digital Signature Public Key"
-              icon={<IconShield />}
-              value="Digital signature key on file"
-            />
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  marginBottom: "12px",
+                }}
+              >
+                <span style={{ color: "#8B5000" }}>
+                  <IconShield />
+                </span>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#6B7280",
+                    letterSpacing: "0.8px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  DIGITAL SIGNATURE PUBLIC KEY
+                </span>
+              </div>
+              <div
+                style={{
+                  background: "#F5F5F0",
+                  border: "1px solid #E5E7EB",
+                  borderRadius: "12px",
+                  padding: "14px 16px",
+                  fontSize: "14px",
+                  color: "#1A1A1A",
+                  fontFamily: "'Roboto Flex', sans-serif",
+                }}
+              >
+                {project.security?.signingKeyName ? (
+                  project.security.signingKeyName
+                ) : (
+                  <strong>No Digital Signature Public Key provided</strong>
+                )}
+              </div>
+            </div>
           </div>
         </div>
+        {/* rejected reason section */}
+        {project.status?.toLowerCase() === "rejected" && project.reason && (
+          <div
+            style={{
+              background: "#FFF",
+              borderRadius: "16px",
+              padding: "32px",
+              marginBottom: "24px",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+              border: "1px solid #FEE2E2",
+            }}
+          >
+            <h2
+              style={{
+                fontFamily: "'Archivo', sans-serif",
+                fontSize: "22px",
+                fontWeight: 700,
+                color: "#1A1A1A",
+                margin: "0 0 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
+            >
+              <ExclamationCircleIcon
+                style={{ width: "24px", height: "24px", color: "#EF4444" }}
+              />
+              Rejection <span style={{ color: "#EF4444" }}>Reason</span>
+            </h2>
+            <div
+              style={{
+                background: "#FEF2F2",
+                borderRadius: "12px",
+                padding: "20px",
+                borderLeft: "4px solid #EF4444",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "14px",
+                  color: "#991B1B",
+                  lineHeight: 1.6,
+                  fontFamily: "'Roboto Flex', sans-serif",
+                }}
+              >
+                Reason: {project.reason}
+              </div>
+              <div
+                style={{
+                  marginTop: "12px",
+                  fontSize: "12px",
+                  color: "#B91C1C",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <CalendarDaysIcon style={{ width: "14px", height: "14px" }} />
+                Rejected on: {formatDate(project.updated_at)}
+              </div>
+            </div>
+          </div>
+        )}
 
-        {/* Subscription Management */}
+        {/* Subscription Management - Collapsible */}
         <div
           style={{
             background: "#FFF",
@@ -5423,39 +1126,235 @@ const OrgDetailView: React.FC<{
                   style={{
                     background: "#F5F5F0",
                     borderRadius: "12px",
-                    padding: "18px 20px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
+                    overflow: "hidden",
+                    border: "1px solid #E5E7EB",
                   }}
                 >
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: "14px",
-                        color: "#1A1A1A",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.5px",
-                      }}
-                    >
-                      {sub.name || sub.service_id || `Subscription ${i + 1}`}
+                  <div
+                    onClick={() =>
+                      setExpandedSubscription(
+                        expandedSubscription === i ? null : i
+                      )
+                    }
+                    style={{
+                      padding: "18px 20px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      cursor: "pointer",
+                      transition: "background 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLDivElement).style.background =
+                        "#EBEBDF";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLDivElement).style.background =
+                        "transparent";
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: "14px",
+                          color: "#1A1A1A",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        Service Name:{""}
+                        {sub.service_name ||
+                          sub.service_id ||
+                          `Subscription ${i + 1}`}
+                      </div>
                     </div>
                     <div
                       style={{
-                        fontSize: "12px",
-                        color: "#6B7280",
-                        marginTop: "4px",
+                        transform:
+                          expandedSubscription === i
+                            ? "rotate(90deg)"
+                            : "rotate(0deg)",
+                        transition: "transform 0.2s ease",
                       }}
                     >
-                      {sub.callbacks?.success
-                        ? `Success: ${sub.callbacks.success}`
-                        : "No callback configured"}
+                      <ChevronRightIcon
+                        style={{
+                          width: "18px",
+                          height: "18px",
+                          color: "#9CA3AF",
+                        }}
+                      />
                     </div>
                   </div>
-                  <ChevronRightIcon
-                    style={{ width: "18px", height: "18px", color: "#9CA3AF" }}
-                  />
+
+                  {expandedSubscription === i && (
+                    <div
+                      style={{
+                        padding: "0 20px 18px 20px",
+                        borderTop: "1px solid #E5E7EB",
+                      }}
+                    >
+                      <div
+                        style={{
+                          paddingTop: "16px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "12px",
+                        }}
+                      >
+                        {sub.callbacks && (
+                          <div>
+                            <div
+                              style={{
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                color: "#6B7280",
+                                letterSpacing: "0.8px",
+                                textTransform: "uppercase",
+                                marginBottom: "8px",
+                              }}
+                            >
+                              CALLBACKS
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "6px",
+                              }}
+                            >
+                              {sub.callbacks.success && (
+                                <div
+                                  style={{
+                                    fontSize: "13px",
+                                    color: "#374151",
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    gap: "12px",
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontWeight: 600,
+                                      fontSize: "12px",
+                                      color: "#374151",
+                                      letterSpacing: "0.5px",
+                                      minWidth: "70px",
+                                      paddingTop: "2px",
+                                    }}
+                                  >
+                                    Success:
+                                  </span>
+                                  <span
+                                    style={{
+                                      wordBreak: "break-all",
+                                      color: "#374151",
+                                      fontFamily: "monospace",
+                                      fontSize: "12px",
+                                      flex: 1,
+                                    }}
+                                  >
+                                    {sub.callbacks.success}
+                                  </span>
+                                </div>
+                              )}
+                              {sub.callbacks.failure && (
+                                <div
+                                  style={{
+                                    fontSize: "13px",
+                                    color: "#374151",
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    gap: "12px",
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontWeight: 600,
+                                      fontSize: "12px",
+                                      color: "#374151",
+                                      letterSpacing: "0.5px",
+                                      minWidth: "70px",
+                                      paddingTop: "2px",
+                                    }}
+                                  >
+                                    Failure:
+                                  </span>
+                                  <span
+                                    style={{
+                                      wordBreak: "break-all",
+                                      color: "#374151",
+                                      fontFamily: "monospace",
+                                      fontSize: "12px",
+                                      flex: 1,
+                                    }}
+                                  >
+                                    {sub.callbacks.failure}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {sub.routes && sub.routes.length > 0 && (
+                          <div>
+                            <div
+                              style={{
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                color: "#6B7280",
+                                letterSpacing: "0.8px",
+                                textTransform: "uppercase",
+                                marginBottom: "8px",
+                              }}
+                            >
+                              ROUTES
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "6px",
+                              }}
+                            >
+                              {sub.routes.map((route, idx) => (
+                                <span
+                                  key={idx}
+                                  style={{
+                                    background: "#FFF",
+                                    border: "1px solid #E5E7EB",
+                                    borderRadius: "6px",
+                                    padding: "4px 10px",
+                                    fontSize: "12px",
+                                    color: "#374151",
+                                  }}
+                                >
+                                  {route.route_name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {!sub.callbacks && !sub.routes?.length && (
+                          <div
+                            style={{
+                              color: "#9CA3AF",
+                              fontSize: "13px",
+                              fontStyle: "italic",
+                              padding: "8px 0",
+                            }}
+                          >
+                            No additional details available
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             ) : (
@@ -5473,20 +1372,30 @@ const OrgDetailView: React.FC<{
           </div>
         </div>
 
-        {/* Action buttons */}
         {isPending && (
           <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
             <button
               onClick={() => setConfirmType("reject")}
               style={{
                 background: "none",
-                border: "none",
+                border: "1px solid #6B7280",
+                borderRadius: "12px",
+                padding: "14px 40px",
                 cursor: "pointer",
                 fontFamily: "'Roboto Flex', sans-serif",
                 fontSize: "14px",
                 fontWeight: 700,
                 color: "#6B7280",
                 letterSpacing: "0.8px",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#EF4444";
+                e.currentTarget.style.color = "#EF4444";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#6B7280";
+                e.currentTarget.style.color = "#6B7280";
               }}
             >
               REJECT
@@ -5599,7 +1508,7 @@ const OnboardingProgressView: React.FC<{
   const fetchDetails = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${APPROVE_BASE}/api/dp/get_approval_details`, {
+      const res = await fetch(`${APPROVE_BASE}/dp/get_approval_details`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -5623,7 +1532,7 @@ const OnboardingProgressView: React.FC<{
   const handleRetry = async (serviceType: string) => {
     setStepLoading(serviceType);
     try {
-      const res = await fetch(`${APPROVE_BASE}/api/dp/approve`, {
+      const res = await fetch(`${APPROVE_BASE}/dp/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -5632,6 +1541,7 @@ const OnboardingProgressView: React.FC<{
           serviceType,
           organisation_id: project.organisation_id,
           email: project.email_id,
+          project_name: project.project_name,
         }),
       });
       const json = await res.json();
@@ -5647,7 +1557,7 @@ const OnboardingProgressView: React.FC<{
   const handleManual = async (serviceType: string) => {
     setStepLoading(`manual_${serviceType}`);
     try {
-      const res = await fetch(`${APPROVE_BASE}/api/dp/manual_approve`, {
+      const res = await fetch(`${APPROVE_BASE}/dp/manual_approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -5700,7 +1610,6 @@ const OnboardingProgressView: React.FC<{
         </div>
       )}
 
-      {/* Top bar */}
       <div
         style={{
           background: "#FFF",
@@ -5753,7 +1662,6 @@ const OnboardingProgressView: React.FC<{
           </div>
         ) : (
           <>
-            {/* Summary bar */}
             <div
               style={{
                 background: "#FFF",
@@ -5804,7 +1712,6 @@ const OnboardingProgressView: React.FC<{
               </div>
             </div>
 
-            {/* Timeline steps */}
             <div
               style={{
                 display: "grid",
@@ -5821,7 +1728,6 @@ const OnboardingProgressView: React.FC<{
 
                 return (
                   <React.Fragment key={step.key}>
-                    {/* Left: time + circle */}
                     <div
                       style={{
                         display: "flex",
@@ -5913,7 +1819,6 @@ const OnboardingProgressView: React.FC<{
                       </div>
                     </div>
 
-                    {/* Right: card */}
                     <div
                       style={{
                         background: "#FFF",
@@ -6138,7 +2043,9 @@ const FilterModal: React.FC<{
   onApply: (f: FilterState) => void;
   onClose: () => void;
 }> = ({ filters, onApply, onClose }) => {
-  const [tab, setTab] = useState<"name" | "date" | "status">("name");
+  const [tab, setTab] = useState<"Project name" | "date" | "status">(
+    "Project name"
+  );
   const [local, setLocal] = useState<FilterState>({ ...filters });
 
   const toggleStatus = (s: string) =>
@@ -6220,7 +2127,7 @@ const FilterModal: React.FC<{
             marginBottom: "24px",
           }}
         >
-          {(["name", "date", "status"] as const).map((t) => (
+          {(["Project name", "date", "status"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -6242,7 +2149,7 @@ const FilterModal: React.FC<{
             </button>
           ))}
         </div>
-        {tab === "name" && (
+        {tab === "Project name" && (
           <div>
             <p
               style={{
@@ -6253,7 +2160,7 @@ const FilterModal: React.FC<{
                 marginBottom: "12px",
               }}
             >
-              Filter by name
+              Filter by Project name
             </p>
             <div style={{ position: "relative" }}>
               <MagnifyingGlassIcon
@@ -6269,7 +2176,7 @@ const FilterModal: React.FC<{
               />
               <input
                 type="text"
-                placeholder="Search name"
+                placeholder="Search Project name"
                 value={local.name}
                 onChange={(e) => setLocal({ ...local, name: e.target.value })}
                 style={{
@@ -6389,13 +2296,24 @@ const FilterModal: React.FC<{
             }}
             style={{
               background: "none",
-              border: "none",
+              border: "1px solid #E5E7EB",
+              borderRadius: "10px",
+              padding: "12px 32px",
               cursor: "pointer",
               fontFamily: "'Roboto Flex', sans-serif",
               fontSize: "14px",
               fontWeight: 600,
               color: "#6B7280",
               letterSpacing: "0.5px",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "#9CA3AF";
+              e.currentTarget.style.backgroundColor = "#F9FAFB";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "#E5E7EB";
+              e.currentTarget.style.backgroundColor = "transparent";
             }}
           >
             CANCEL
@@ -6468,6 +2386,7 @@ const DpApprovalScreen: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [counts, setCounts] = useState({
     pending: "0",
+    in_progress: "0",
     approved: "0",
     rejected: "0",
     total: "0",
@@ -6485,18 +2404,82 @@ const DpApprovalScreen: React.FC = () => {
   const pageSize = 10;
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
+  // const fetchProjects = useCallback(async () => {
+  //   setIsLoading(true);
+  //   setError(null);
+  //   try {
+  //     const params = new URLSearchParams();
+
+  //     if (filters.name) {
+  //       params.append("name", filters.name);
+  //     }
+  //     if (filters.date) {
+  //       params.append("date", filters.date);
+  //     }
+  //     if (filters.statuses.length > 0) {
+  //       params.append("status", filters.statuses.join(","));
+  //     }
+
+  //     params.append("sort_by", "updated_at");
+  //     params.append("order", sortOrder === "asc" ? "asc" : "desc");
+
+  //     const url = `${API_BASE_URL}/projects?${params.toString()}`;
+  //     const res = await fetch(url);
+  //     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  //     const json: ApiResponse = await res.json();
+  //     setProjects(json.data || []);
+  //     setCounts(
+  //       json.counts || {
+  //         pending: "0",
+  //         in_progress: "0",
+  //         approved: "0",
+  //         rejected: "0",
+  //         total: "0",
+  //       }
+  //     );
+  //   } catch (e) {
+  //     setError(e instanceof Error ? e.message : "Failed to load data");
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // }, [filters, sortOrder]);
   const fetchProjects = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/projects`);
+      const params = new URLSearchParams();
+
+      // Use search parameter for global search
+      if (debouncedSearchTerm) {
+        params.append("search", debouncedSearchTerm);
+      }
+
+      // Apply individual filters
+      if (filters.name) {
+        params.append("project_name", filters.name);
+      }
+      if (filters.date) {
+        params.append("updated_at", filters.date);
+      }
+      if (filters.statuses.length > 0) {
+        params.append("status", filters.statuses.join(","));
+      }
+
+      params.append("sort_by", "updated_at");
+      params.append("order", sortOrder === "asc" ? "asc" : "desc");
+
+      const url = `${API_BASE_URL}/projects?${params.toString()}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: ApiResponse = await res.json();
       setProjects(json.data || []);
       setCounts(
         json.counts || {
           pending: "0",
+          in_progress: "0",
           approved: "0",
           rejected: "0",
           total: "0",
@@ -6507,12 +2490,24 @@ const DpApprovalScreen: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [filters, sortOrder, debouncedSearchTerm]);
 
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Update fetchProjects to use debouncedSearchTerm
+  // useEffect(() => {
+  //   fetchProjects();
+  // }, [fetchProjects, debouncedSearchTerm]);
   const handleViewClick = (p: Project) => {
     setSelectedProject(p);
     const s = normalizeStatus(p.status);
@@ -6544,26 +2539,20 @@ const DpApprovalScreen: React.FC = () => {
       <OnboardingProgressView project={selectedProject} onBack={handleBack} />
     );
 
-  const filtered = projects.filter((p) => {
-    const term = searchTerm.toLowerCase();
-    const matchSearch =
-      !term ||
-      p.organisation_name.toLowerCase().includes(term) ||
-      p.organisation_id.toLowerCase().includes(term) ||
-      p.project_name.toLowerCase().includes(term) ||
-      p.first_name.toLowerCase().includes(term) ||
-      p.last_name.toLowerCase().includes(term);
-    const matchName =
-      !filters.name ||
-      (p.organisation_name + " " + p.first_name + " " + p.last_name)
-        .toLowerCase()
-        .includes(filters.name.toLowerCase());
-    const matchDate = !filters.date || p.updated_at.startsWith(filters.date);
-    const matchStatus =
-      filters.statuses.length === 0 ||
-      filters.statuses.includes(normalizeStatus(p.status));
-    return matchSearch && matchName && matchDate && matchStatus;
-  });
+  // const filtered = projects.filter((p) => {
+  //   const term = searchTerm.toLowerCase();
+  //   return (
+  //     !term ||
+  //     p.organisation_name.toLowerCase().includes(term) ||
+  //     p.organisation_id.toLowerCase().includes(term) ||
+  //     p.project_name.toLowerCase().includes(term) ||
+  //     p.first_name.toLowerCase().includes(term) ||
+  //     p.last_name.toLowerCase().includes(term) ||
+  //     p.email_id.toLowerCase().includes(term)
+  //   );
+  // });
+
+  const filtered = projects;
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginated = filtered.slice(
@@ -6587,6 +2576,13 @@ const DpApprovalScreen: React.FC = () => {
       label: "Pending",
       value: counts.pending,
       icon: "⏳",
+      iconBg: "#FFE599",
+      color: "#92600A",
+    },
+    {
+      label: "Inprogress",
+      value: counts.in_progress,
+      icon: "⟳",
       iconBg: "#FFE599",
       color: "#92600A",
     },
@@ -6634,19 +2630,18 @@ const DpApprovalScreen: React.FC = () => {
             lineHeight: 1.2,
           }}
         >
-          Organization{" "}
+          Subscription{" "}
           <span style={{ color: "#FF9800" }}>Approval Management</span>
         </h1>
         <p style={{ color: "#6B7280", fontSize: "14px", marginTop: "6px" }}>
-          Review and approve/reject organization registrations.
+          Review and approve/reject Subscriptions.
         </p>
       </div>
 
-      {/* Stat Cards */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(5, 1fr)",
           gap: "16px",
           marginBottom: "28px",
         }}
@@ -6703,7 +2698,6 @@ const DpApprovalScreen: React.FC = () => {
         ))}
       </div>
 
-      {/* Toolbar */}
       <div
         style={{
           display: "flex",
@@ -6852,7 +2846,6 @@ const DpApprovalScreen: React.FC = () => {
         </div>
       )}
 
-      {/* Table */}
       <div
         style={{
           background: "#FFFFFF",
@@ -6865,28 +2858,98 @@ const DpApprovalScreen: React.FC = () => {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "2fr 2fr 1.5fr 1.2fr 1fr",
+            gridTemplateColumns: "1.5fr 1.5fr 1fr 1.5fr 1.5fr 1fr 1fr",
             padding: "14px 24px",
             background: "#F9F9F9",
             borderBottom: "1px solid #F0F0F0",
           }}
         >
-          {["ORG NAME", "ORG ID", "LAST UPDATED", "STATUS", "ACTIONS"].map(
-            (h) => (
-              <div
-                key={h}
-                style={{
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  color: "#1A1A1A",
-                  letterSpacing: "0.6px",
-                  fontFamily: "'Roboto Flex', sans-serif",
-                }}
-              >
-                {h}
-              </div>
-            )
-          )}
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#1A1A1A",
+              letterSpacing: "0.6px",
+              fontFamily: "'Roboto Flex', sans-serif",
+            }}
+          >
+            ORG NAME
+          </div>
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#1A1A1A",
+              letterSpacing: "0.6px",
+              fontFamily: "'Roboto Flex', sans-serif",
+            }}
+          >
+            PROJECT NAME
+          </div>
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#1A1A1A",
+              letterSpacing: "0.6px",
+              fontFamily: "'Roboto Flex', sans-serif",
+            }}
+          >
+            ORG ID
+          </div>
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#1A1A1A",
+              letterSpacing: "0.6px",
+              fontFamily: "'Roboto Flex', sans-serif",
+            }}
+          >
+            EMAIL
+          </div>
+          <div
+            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#1A1A1A",
+              letterSpacing: "0.6px",
+              fontFamily: "'Roboto Flex', sans-serif",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          >
+            LAST UPDATED
+            <span style={{ fontSize: "15px" }}>
+              {sortOrder === "asc" ? "↑" : "↓"}
+            </span>
+          </div>
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#1A1A1A",
+              letterSpacing: "0.6px",
+              fontFamily: "'Roboto Flex', sans-serif",
+            }}
+          >
+            STATUS
+          </div>
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#1A1A1A",
+              letterSpacing: "0.6px",
+              fontFamily: "'Roboto Flex', sans-serif",
+            }}
+          >
+            ACTIONS
+          </div>
         </div>
 
         {isLoading ? (
@@ -6926,7 +2989,7 @@ const DpApprovalScreen: React.FC = () => {
               key={p.id}
               style={{
                 display: "grid",
-                gridTemplateColumns: "2fr 2fr 1.5fr 1.2fr 1fr",
+                gridTemplateColumns: "1.5fr 1.5fr 1fr 1.5fr 1.5fr 1fr 1fr",
                 padding: "18px 24px",
                 borderBottom: "1px solid #F0F0F0",
                 alignItems: "center",
@@ -6961,16 +3024,28 @@ const DpApprovalScreen: React.FC = () => {
                   {p.first_name} {p.last_name}
                 </div>
               </div>
+
+              <div>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    color: "#1A1A1A",
+                  }}
+                >
+                  {p.project_name || "—"}
+                </div>
+              </div>
               <div
                 style={{ display: "flex", alignItems: "center", gap: "6px" }}
               >
                 <span style={{ fontSize: "13px", color: "#374151" }}>
-                  ID:{" "}
+                  {" "}
                   {p.organisation_id.length > 12
                     ? p.organisation_id.slice(0, 12) + "…"
                     : p.organisation_id}
                 </span>
-                {p.subscriptions?.length > 1 && (
+                {/* {p.subscriptions?.length > 1 && (
                   <span
                     style={{
                       background: "#F3F4F6",
@@ -6987,7 +3062,15 @@ const DpApprovalScreen: React.FC = () => {
                   >
                     +{p.subscriptions.length - 1}
                   </span>
-                )}
+                )} */}
+              </div>
+              <div
+                style={{
+                  fontSize: "13px",
+                  color: "#374151",
+                }}
+              >
+                {p.email_id || "—"}
               </div>
               <div
                 style={{
@@ -7036,7 +3119,6 @@ const DpApprovalScreen: React.FC = () => {
         )}
       </div>
 
-      {/* Pagination */}
       {!isLoading && filtered.length > 0 && (
         <div
           style={{

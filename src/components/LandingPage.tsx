@@ -1,107 +1,6 @@
-// import React from "react";
-// import { useNavigate } from "react-router-dom";
-// // import { useAuth } from "../contexts/AuthContext";
-// import dpApprovalIcon from "../assets/dp-approval.svg"; // Group icon
-// import apiMigrationIcon from "../assets/api-migration.png";
-
-// const LandingPage: React.FC = () => {
-//   const navigate = useNavigate();
-//   // const { user } = useAuth();
-
-//   return (
-//     <div className="min-h-screen bg-[#F5F5F5] flex flex-col">
-//       {/* Grey Banner */}
-//       <div className="bg-[#E0E0E0] h-[280px]" />
-
-//       {/* Main Content */}
-//       <main className="flex-1 bg-white">
-//         <div className="max-w-6xl mx-auto px-6 py-14">
-//           <h2 className="text-4xl font-semibold text-center mb-2">Functions</h2>
-//           <p className="text-center text-gray-600 mb-10">
-//             Select a core management function to proceed.
-//           </p>
-
-//           {/* Cards */}
-//           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-3xl mx-auto">
-//             {/* DB Approval Card */}
-//             <div className="bg-white rounded-xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.12)]">
-//               <div className="flex items-start gap-4 mb-6">
-//                 {/* Icon - Left */}
-//                 <div className="w-16 h-16 bg-[#FFF3D6] rounded-lg flex items-center justify-center shrink-0">
-//                   <img
-//                     src={dpApprovalIcon}
-//                     alt="DB Approval"
-//                     className="w-9 h-9"
-//                   />
-//                 </div>
-
-//                 {/* Content - Right */}
-//                 <div>
-//                   <h3 className="text-xl font-semibold text-[#1F2937] mb-1">
-//                     DB Approval
-//                   </h3>
-//                   <p className="text-lg text-gray-600 leading-relaxed">
-//                     Review and approve DP registrations.
-//                   </p>
-//                 </div>
-//               </div>
-
-//               {/* Button */}
-//               <button
-//                 onClick={() => navigate("/dp-approval")}
-//                 className="w-full bg-[#8E211B] text-white py-2.5 rounded-md font-medium
-//                  shadow-[0_3px_10px_rgba(0,0,0,0.25)]
-//                  hover:bg-[#741A16] transition"
-//               >
-//                 Manage Approvals
-//               </button>
-//             </div>
-
-//             {/* API Migration Card */}
-//             <div className="bg-white rounded-xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.12)]">
-//               <div className="flex items-start gap-4 mb-6">
-//                 {/* Icon - Left */}
-//                 <div className="w-16 h-16 bg-[#FFF3D6] rounded-lg flex items-center justify-center shrink-0">
-//                   <img
-//                     src={apiMigrationIcon}
-//                     alt="API Migration"
-//                     className="w-9 h-9"
-//                   />
-//                 </div>
-
-//                 {/* Content - Right */}
-//                 <div>
-//                   <h3 className="text-xl font-semibold text-[#1F2937] mb-1">
-//                     API Migration
-//                   </h3>
-//                   <p className="text-lg text-gray-600 leading-relaxed">
-//                     Approve deployment requests.
-//                   </p>
-//                 </div>
-//               </div>
-
-//               {/* Button */}
-//               <button
-//                 onClick={() => navigate("/api-migration-approval")}
-//                 className="w-full bg-[#8E211B] text-white py-2.5 rounded-md font-medium
-//                  shadow-[0_3px_10px_rgba(0,0,0,0.25)]
-//                  hover:bg-[#741A16] transition"
-//               >
-//                 Review Requests
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       </main>
-//     </div>
-//   );
-// };
-
-// export default LandingPage;
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import dpApprovalIcon from "../assets/dp-approval.svg"; // Org Management — existing icon
+import dpApprovalIcon from "../assets/dp-approval.svg";
 import apiMigrationIcon from "../assets/ApiMigration.png";
 import analyticsIcon from "../assets/Analytics.png";
 import rolesIcon from "../assets/Roles.png";
@@ -123,7 +22,7 @@ const LandingPage: React.FC = () => {
         <img
           src={dpApprovalIcon}
           alt="Org Management"
-          style={{ width: "64px", height: "64px" }}
+          style={{ width: "48px", height: "48px" }}
         />
       ),
       title: "Org Management",
@@ -136,7 +35,7 @@ const LandingPage: React.FC = () => {
         <img
           src={apiMigrationIcon}
           alt="API Migration"
-          style={{ width: "64px", height: "64px" }}
+          style={{ width: "48px", height: "48px" }}
         />
       ),
       title: "API Migration",
@@ -149,7 +48,7 @@ const LandingPage: React.FC = () => {
         <img
           src={analyticsIcon}
           alt="Analytics"
-          style={{ width: "64px", height: "64px" }}
+          style={{ width: "48px", height: "48px" }}
         />
       ),
       title: "Analytics",
@@ -162,7 +61,7 @@ const LandingPage: React.FC = () => {
         <img
           src={rolesIcon}
           alt="Roles"
-          style={{ width: "64px", height: "64px" }}
+          style={{ width: "48px", height: "48px" }}
         />
       ),
       title: "Roles",
@@ -181,26 +80,23 @@ const LandingPage: React.FC = () => {
       <section
         style={{
           width: "100%",
-          minHeight: "431px",
-          marginTop: "40px", // accounts for fixed navbar height
+          minHeight: "200px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           textAlign: "center",
-          padding: "60px 24px",
+          padding: "24px 24px 20px",
           background: "#FCF9F8",
-          position: "relative",
         }}
       >
-        {/* Decorative underline accent under heading */}
         <h1
           style={{
             fontFamily: "'Archivo', sans-serif",
-            fontSize: "48px",
+            fontSize: "36px",
             fontWeight: 700,
             color: "#1A1A1A",
-            marginBottom: "16px",
+            marginBottom: "8px",
             lineHeight: 1.2,
           }}
         >
@@ -220,22 +116,22 @@ const LandingPage: React.FC = () => {
         {/* Gradient underline bar */}
         <div
           style={{
-            width: "590px",
-            height: "5px",
+            width: "400px",
+            height: "3px",
             borderRadius: "6px",
             background:
               "linear-gradient(269.95deg, #FF9800 46.66%, #8B5000 56.86%)",
-            marginBottom: "28px",
+            marginBottom: "12px",
           }}
         />
 
         <p
           style={{
             fontFamily: "'Roboto Flex', sans-serif",
-            fontSize: "20px",
-            color: " #554434",
-            maxWidth: "722px",
-            lineHeight: "1.7",
+            fontSize: "15px",
+            color: "#554434",
+            maxWidth: "650px",
+            lineHeight: "1.5",
           }}
         >
           Multi-Connect App (MCA) enables NSDL administrators to manage Org
@@ -249,18 +145,18 @@ const LandingPage: React.FC = () => {
         style={{
           background: "#FFFFFF",
           flex: 1,
-          padding: "60px 24px 80px",
+          padding: "24px 24px 32px",
         }}
       >
         <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
           <h2
             style={{
               fontFamily: "'Archivo', sans-serif",
-              fontSize: "40px",
+              fontSize: "28px",
               fontWeight: 700,
               textAlign: "center",
               color: "#1A1A1A",
-              marginBottom: "8px",
+              marginBottom: "4px",
             }}
           >
             Functions
@@ -268,31 +164,29 @@ const LandingPage: React.FC = () => {
           <p
             style={{
               textAlign: "center",
-              color: " #554434",
+              color: "#554434",
               fontFamily: "'Roboto Flex', sans-serif",
-              fontSize: "16px",
-              marginBottom: "48px",
+              fontSize: "14px",
+              marginBottom: "24px",
             }}
           >
             Select a core management function to proceed.
           </p>
 
-          {/* Cards Grid */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "28px",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: "20px",
+              maxWidth: "1000px",
+              margin: "0 auto",
             }}
           >
-            {cards.map((card, index) => (
+            {cards.map((card) => (
               <FunctionCardComponent
                 key={card.title}
                 card={card}
                 onNavigate={() => navigate(card.route)}
-                centered={index === 3} // Last card centered
-                totalCards={cards.length}
-                index={index}
               />
             ))}
           </div>
@@ -305,51 +199,52 @@ const LandingPage: React.FC = () => {
 interface FunctionCardProps {
   card: FunctionCard;
   onNavigate: () => void;
-  centered: boolean;
-  totalCards: number;
-  index: number;
 }
 
 const FunctionCardComponent: React.FC<FunctionCardProps> = ({
   card,
   onNavigate,
-  centered,
-  totalCards,
-  index,
 }) => {
-  // The 4th card (Roles) should be centered — use CSS grid column trick
-  const isLastOdd =
-    centered && totalCards % 3 !== 0 && index === totalCards - 1;
-
   return (
     <div
       style={{
-        gridColumn: isLastOdd ? "2 / 3" : undefined,
         background: "#FFFFFF",
-        borderRadius: "16px",
+        borderRadius: "12px",
         overflow: "hidden",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
         display: "flex",
         flexDirection: "column",
+        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.transform =
+          "translateY(-4px)";
+        (e.currentTarget as HTMLDivElement).style.boxShadow =
+          "0 6px 20px rgba(0,0,0,0.12)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
+        (e.currentTarget as HTMLDivElement).style.boxShadow =
+          "0 2px 12px rgba(0,0,0,0.08)";
       }}
     >
       {/* Orange top section with icon */}
       <div
         style={{
           background: "#FF9800",
-          padding: "32px 24px 24px",
+          padding: "16px",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          minHeight: "130px",
+          minHeight: "75px",
         }}
       >
         <div
           style={{
-            width: "120px",
-            height: "120px",
+            width: "64px",
+            height: "64px",
             background: "#FFFFFF",
-            borderRadius: "16px",
+            borderRadius: "12px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -363,7 +258,7 @@ const FunctionCardComponent: React.FC<FunctionCardProps> = ({
       {/* Card body */}
       <div
         style={{
-          padding: "24px 24px 28px",
+          padding: "16px 14px",
           display: "flex",
           flexDirection: "column",
           flex: 1,
@@ -372,10 +267,10 @@ const FunctionCardComponent: React.FC<FunctionCardProps> = ({
         <h3
           style={{
             fontFamily: "'Archivo', sans-serif",
-            fontSize: "28px",
+            fontSize: "18px",
             fontWeight: 700,
             color: "#1A1A1A",
-            marginBottom: "8px",
+            marginBottom: "6px",
             textAlign: "center",
           }}
         >
@@ -384,11 +279,11 @@ const FunctionCardComponent: React.FC<FunctionCardProps> = ({
         <p
           style={{
             fontFamily: "'Roboto Flex', sans-serif",
-            fontSize: "20px",
-            color: " #554434",
-            lineHeight: "1.6",
+            fontSize: "13px",
+            color: "#554434",
+            lineHeight: "1.4",
             textAlign: "center",
-            marginBottom: "24px",
+            marginBottom: "14px",
             flex: 1,
           }}
         >
@@ -399,13 +294,13 @@ const FunctionCardComponent: React.FC<FunctionCardProps> = ({
           onClick={onNavigate}
           style={{
             width: "100%",
-            padding: "13px 24px",
+            padding: "9px 14px",
             background: "linear-gradient(39.34deg, #8B5000 0%, #FF9800 100%)",
             color: "#FFFFFF",
             border: "none",
             borderRadius: "8px",
             fontFamily: "'Roboto Flex', sans-serif",
-            fontSize: "15px",
+            fontSize: "13px",
             fontWeight: 600,
             cursor: "pointer",
             transition: "opacity 0.2s ease, transform 0.15s ease",

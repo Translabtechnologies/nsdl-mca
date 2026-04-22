@@ -1,103 +1,22 @@
-// // App.tsx (updated)
-// import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-// //import React from "react";
-// import { AuthProvider } from "./contexts/AuthContext";
-
-// // Import your actual components
-// import LandingPage from "./components/LandingPage";
-// import { KeyManagement } from "./components/KeyManagement";
-// import ApiMigration from "./components/ApiMigration";
-// import Analytics from "./components/Analytics";
-// // import { DpApprovalScreen } from "./components/DpApprovalScreen"; // Add this import
-// import DpApprovalScreen from "./components/DpApprovalScreen";
-
-// import Layout from "./components/Layout";
-// import ProtectedRoute from "./components/ProtectedRoute";
-
-// function App() {
-//   return (
-//     <AuthProvider>
-//       <Router>
-//         <Layout>
-//           <Routes>
-//             {/* 1. Default Route: Shows the LandingPage */}
-//             <Route path="/" element={<LandingPage />} />
-
-//             {/* 2. Route for API Migration Approval */}
-//             <Route
-//               path="/api-migration-approval"
-//               element={
-//                 <ProtectedRoute>
-//                   <ApiMigration />
-//                 </ProtectedRoute>
-//               }
-//             />
-
-//             {/* 3. Route: Key Management Screen */}
-//             <Route
-//               path="/key-management"
-//               element={
-//                 <ProtectedRoute>
-//                   <KeyManagement />
-//                 </ProtectedRoute>
-//               }
-//             />
-
-//             {/* 4. Route: Analytics Dashboard */}
-//             <Route
-//               path="/analytics"
-//               element={
-//                 <ProtectedRoute>
-//                   <Analytics />
-//                 </ProtectedRoute>
-//               }
-//             />
-
-//             {/* 5. NEW Route: DP Approval Screen */}
-//             <Route
-//               path="/dp-approval"
-//               element={
-//                 <ProtectedRoute>
-//                   <DpApprovalScreen />
-//                 </ProtectedRoute>
-//               }
-//             />
-
-//             {/* Catch-all route for unknown paths */}
-//             <Route
-//               path="*"
-//               element={
-//                 <div className="p-10 text-center text-red-600">
-//                   404: Page Not Found
-//                 </div>
-//               }
-//             />
-//           </Routes>
-//         </Layout>
-//       </Router>
-//     </AuthProvider>
-//   );
-// }
-
-// export default App;
-
-// App.tsx (updated)
-// App.tsx (updated)
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 
-// Import your actual components
 import LandingPage from "./components/LandingPage";
-import { KeyManagement } from "./components/KeyManagement";
 import Analytics from "./components/Analytics";
 import DpApprovalScreen from "./components/DpApprovalScreen";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminDashboard from "./components/AdminDashboard";
 
-// Import API Migration components
 import Environments from "./components/ApiMigration/Environments";
 import Migration from "./components/ApiMigration/Migration";
 import Gitlab from "./components/ApiMigration/Gitlab";
+import Login from "./components/Login";
 
 function App() {
   return (
@@ -105,14 +24,44 @@ function App() {
       <Router>
         <Layout>
           <Routes>
-            {/* 1. Default Route: Shows the LandingPage */}
-            <Route path="/" element={<LandingPage />} />
+            {/* 1. Login — public */}
+            <Route path="/login" element={<Login />} />
 
-            {/* 2. API Migration Sub-routes */}
+            {/* 2. Root redirect — role-aware */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <LandingPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 3. Org Approval — super_admin, checker */}
+            <Route
+              path="/dp-approval"
+              element={
+                <ProtectedRoute allowedRoles={["super_admin", "checker"]}>
+                  <DpApprovalScreen />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 4. Analytics — super_admin, checker */}
+            <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute allowedRoles={["super_admin", "checker"]}>
+                  <Analytics />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 5. API Migration — super_admin, checker */}
             <Route
               path="/api-migration/environments"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["super_admin", "checker"]}>
                   <Environments />
                 </ProtectedRoute>
               }
@@ -120,7 +69,7 @@ function App() {
             <Route
               path="/api-migration/migration"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["super_admin", "checker"]}>
                   <Migration />
                 </ProtectedRoute>
               }
@@ -128,47 +77,37 @@ function App() {
             <Route
               path="/api-migration/gitlab"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={["super_admin", "checker"]}>
                   <Gitlab />
                 </ProtectedRoute>
               }
             />
-
-            {/* 3. Route: Key Management Screen */}
             <Route
-              path="/key-management"
+              path="/api-migration-approval"
               element={
-                <ProtectedRoute>
-                  <KeyManagement />
+                <ProtectedRoute allowedRoles={["super_admin", "checker"]}>
+                  <Environments />
                 </ProtectedRoute>
               }
             />
 
-            {/* 4. Route: Analytics Dashboard */}
+            {/* 6. Admin Dashboard — kong_admin only */}
             <Route
-              path="/analytics"
+              path="/user-management"
               element={
-                <ProtectedRoute>
-                  <Analytics />
+                <ProtectedRoute allowedRoles={["kong_admin", "super_admin"]}>
+                  <AdminDashboard />
                 </ProtectedRoute>
               }
             />
 
-            {/* 5. Route: DP Approval Screen */}
-            <Route
-              path="/dp-approval"
-              element={
-                <ProtectedRoute>
-                  <DpApprovalScreen />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* 6. Settings and Help pages */}
+            {/* 7. Settings & Help — super_admin, checker, maker */}
             <Route
               path="/settings"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute
+                  allowedRoles={["super_admin", "checker", "maker"]}
+                >
                   <div className="p-8">
                     <h1 className="text-2xl font-bold text-gray-900">
                       Settings
@@ -183,7 +122,9 @@ function App() {
             <Route
               path="/help"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute
+                  allowedRoles={["super_admin", "checker", "maker"]}
+                >
                   <div className="p-8">
                     <h1 className="text-2xl font-bold text-gray-900">
                       Help & Support
@@ -196,17 +137,7 @@ function App() {
               }
             />
 
-            {/* Redirect old API migration route to environments */}
-            <Route
-              path="/api-migration-approval"
-              element={
-                <ProtectedRoute>
-                  <Environments />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Catch-all route for unknown paths */}
+            {/* Catch-all */}
             <Route
               path="*"
               element={
