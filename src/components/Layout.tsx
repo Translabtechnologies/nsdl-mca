@@ -69,11 +69,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isKongAdmin = role === "kong_admin";
   const isLoginPage = location.pathname === "/login";
 
+  // const showSidebar =
+  //   isAuthenticated &&
+  //   !isLoginPage &&
+  //   location.pathname !== "/" &&
+  //   (isKongAdmin ? location.pathname === "/user-management" : true);
+
   const showSidebar =
-    isAuthenticated &&
-    !isLoginPage &&
-    location.pathname !== "/" &&
-    (isKongAdmin ? location.pathname === "/user-management" : true);
+    isAuthenticated && !isLoginPage && location.pathname !== "/";
 
   if (isLoading) {
     return (
@@ -444,7 +447,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 lineHeight: 1.5,
               }}
             >
-              You will be logged out in 1 minute due to inactivity.
+              You will be logged out in 10 seconds due to inactivity.
             </p>
             <button
               onClick={extendSession}
