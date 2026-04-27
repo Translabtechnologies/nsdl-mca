@@ -673,6 +673,7 @@ const OrgDetailView: React.FC<{
           organisation_id: project.organisation_id,
           email: project.email_id,
           project_name: project.project_name,
+          project_id: project.id,
         }),
       });
       const json = await res.json();
@@ -1550,6 +1551,7 @@ const OnboardingProgressView: React.FC<{
           organisation_id: project.organisation_id,
           email: project.email_id,
           project_name: project.project_name,
+          project_id: project.id,
         }),
       });
       const json = await res.json();

@@ -5,6 +5,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import React from "react";
 
 import LandingPage from "./components/LandingPage";
 import Analytics from "./components/Analytics";
@@ -41,7 +42,9 @@ function App() {
             <Route
               path="/dp-approval"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "checker"]}>
+                <ProtectedRoute
+                  allowedRoles={["super_admin", "checker", "kong_admin"]}
+                >
                   <DpApprovalScreen />
                 </ProtectedRoute>
               }
@@ -51,7 +54,9 @@ function App() {
             <Route
               path="/analytics"
               element={
-                <ProtectedRoute allowedRoles={["super_admin", "checker"]}>
+                <ProtectedRoute
+                  allowedRoles={["super_admin", "checker", "kong_admin"]}
+                >
                   <Analytics />
                 </ProtectedRoute>
               }

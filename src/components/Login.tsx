@@ -242,7 +242,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: "1px solid #ccc",
     outline: "none",
     fontSize: "15px",
-    padding: "10px 0",
+    padding: "10px 8px",
     color: "#1A1A1A",
     background: "transparent",
     transition: "border-bottom 0.2s",
