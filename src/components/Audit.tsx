@@ -311,9 +311,9 @@ const EventDetailDrawer: React.FC<{ eventId: string | null; onClose: () => void 
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Actor</p>
                 <div className="flex items-start gap-3">
-                  <ActorAvatar name={ev.actor_name} id={ev.actor_id} />
+                  <ActorAvatar name={ev.actor_id} id={ev.actor_id} />
                   <div className="space-y-0.5 text-xs">
-                    <p className="font-semibold text-gray-800">{ev.actor_name || ev.actor_id || "—"}</p>
+                    <p className="font-semibold text-gray-800">{ev.actor_id || "—"}</p>
                     {ev.actor_email && <p className="text-gray-500">{ev.actor_email}</p>}
                     <div className="flex items-center gap-2 pt-0.5">
                       {ev.actor_role && <Pill>{ev.actor_role}</Pill>}
@@ -678,7 +678,7 @@ const OverviewTab: React.FC<{ onSelectEvent: (id: string) => void }> = ({ onSele
                   </td>
                   <td className="px-4 py-3 align-middle">
                     <span className="font-semibold text-gray-800">
-                      {ev.actor_name || ev.actor_id || "—"}
+                      {ev.actor_id || "—"}
                     </span>
                   </td>
                   <td className="px-4 py-3 align-middle text-right relative">
@@ -807,7 +807,7 @@ const LogsTab: React.FC<{
 
                     {/* Actor */}
                     <td className="px-4 py-3">
-                      <p className="font-semibold text-gray-800">{log.actor_name || log.actor_id || "—"}</p>
+                      <p className="font-semibold text-gray-800">{log.actor_id || "—"}</p>
                       {log.actor_email && (
                         <p className="text-gray-400">{log.actor_email}</p>
                       )}
