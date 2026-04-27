@@ -56,19 +56,32 @@ const LandingPage: React.FC = () => {
       buttonLabel: "View Analytics",
       route: "/analytics",
     },
+    // {
+    //   icon: (
+    //     <img
+    //       src={rolesIcon}
+    //       alt="Roles"
+    //       style={{ width: "48px", height: "48px" }}
+    //     />
+    //   ),
+    //   title: "Roles",
+    //   description: "View and manage roles",
+    //   buttonLabel: "View",
+    //   route: "/roles",
+    // },
     {
       icon: (
         <img
           src={rolesIcon}
-          alt="Roles"
+          alt="Audit"
           style={{ width: "48px", height: "48px" }}
         />
       ),
-      title: "Roles",
-      description: "View and manage roles",
+      title: "Audit",
+      description: "View and manage audit logs",
       buttonLabel: "View",
-      route: "/roles",
-    },
+      route: "/audit",
+    }
   ];
 
   return (

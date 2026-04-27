@@ -13,6 +13,7 @@ import {
   DocumentDuplicateIcon,
   CodeBracketIcon,
   UsersIcon,
+  DocumentCheckIcon
 } from "@heroicons/react/24/outline";
 
 // ============================================================================
@@ -57,7 +58,7 @@ const MENU_CONFIG: MenuItemConfig[] = [
     id: "audit",
     label: "Audit",
     path: "/audit",
-    icon: ChartBarIcon,
+    icon: DocumentCheckIcon,
     allowedRoles: ["super_admin"],
   },
   {
