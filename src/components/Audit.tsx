@@ -167,6 +167,7 @@ const EventDetailDrawer: React.FC<{ eventId: string | null; onClose: () => void 
   const [data, setData] = useState<EventDetail | null>(null);
   const [tab, setTab] = useState("Summary");
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
@@ -397,24 +398,24 @@ const EventDetailDrawer: React.FC<{ eventId: string | null; onClose: () => void 
 
         {/* Footer */}
         <div className="flex gap-2 border-t border-gray-200 bg-gray-50 p-3">
+          
           <button
-            className="flex flex-1 items-center justify-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-2 text-xs hover:bg-gray-50"
-            onClick={() => ev && navigator.clipboard.writeText(ev.event_id)}
-          >
-            🔗 Copy permalink
-          </button>
-          <button
-            className="flex flex-1 items-center justify-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-2 text-xs hover:bg-gray-50"
-            onClick={() => {
+            className="flex flex-1 items-center justify-center gap-1.5 rounded border border-gray-200 bg-white px-3 py-2 text-xs hover:bg-gray-50 disabled:opacity-50 disabled:cursor-wait"
+            disabled={exporting}
+            onClick={async () => {
               if (!data) return;
+              setExporting(true);
+              await new Promise((r) => setTimeout(r, 500));
               const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
               const a = document.createElement("a");
               a.href = URL.createObjectURL(blob);
               a.download = `audit-evidence-${ev?.event_id ?? "unknown"}.json`;
               a.click();
+              setExporting(false);
             }}
           >
-            <ArrowDownTrayIcon className="h-3.5 w-3.5" /> Export evidence
+            {exporting ? <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" /> : <ArrowDownTrayIcon className="h-3.5 w-3.5" />}
+            {exporting ? "Exporting..." : "Export evidence"}
           </button>
         </div>
       </div>
@@ -1033,9 +1034,12 @@ const Audit: React.FC = () => {
   const [activeTab,       setActiveTab]       = useState<"Overview" | "Logs" | "Trail">("Overview");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const trailExportRef = useRef<(() => void) | null>(null);
+  const [isExportingCSV, setIsExportingCSV] = useState(false);
+  const [isExportingTrail, setIsExportingTrail] = useState(false);
 
   const exportCSV = async () => {
     try {
+      setIsExportingCSV(true);
       const response = await fetch(`${apiBase}/audit/export-csv?time_range=all`, { headers: authHeader() });
       if (!response.ok) throw new Error("Failed to export CSV");
       const blob = await response.blob();
@@ -1045,7 +1049,17 @@ const Audit: React.FC = () => {
       a.click();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsExportingCSV(false);
     }
+  };
+
+  const handleExportTrail = async () => {
+    if (!trailExportRef.current) return;
+    setIsExportingTrail(true);
+    await new Promise((r) => setTimeout(r, 500));
+    trailExportRef.current();
+    setIsExportingTrail(false);
   };
 
   return (
@@ -1073,17 +1087,21 @@ const Audit: React.FC = () => {
         {activeTab === "Logs" && (
           <button
             onClick={exportCSV}
-            className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            disabled={isExportingCSV}
+            className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-wait"
           >
-            <ArrowDownTrayIcon className="h-3.5 w-3.5" /> Export CSV
+            {isExportingCSV ? <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" /> : <ArrowDownTrayIcon className="h-3.5 w-3.5" />}
+            {isExportingCSV ? "Exporting..." : "Export CSV"}
           </button>
         )}
         {activeTab === "Trail" && (
           <button
-            onClick={() => trailExportRef.current && trailExportRef.current()}
-            className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            onClick={handleExportTrail}
+            disabled={isExportingTrail}
+            className="flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-wait"
           >
-            <ArrowDownTrayIcon className="h-3.5 w-3.5" /> Export trail
+            {isExportingTrail ? <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" /> : <ArrowDownTrayIcon className="h-3.5 w-3.5" />}
+            {isExportingTrail ? "Exporting..." : "Export trail"}
           </button>
         )}
       </div>
