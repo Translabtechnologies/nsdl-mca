@@ -116,6 +116,57 @@ function initials(name: string | null, id: string | null) {
     .join("");
 }
 
+function computeWordDiff(oldStr: string | null, newStr: string | null) {
+  const o = oldStr ?? "";
+  const n = newStr ?? "";
+  if (!o && !n) return [];
+  if (!o) return [{ added: true, value: n }];
+  if (!n) return [{ removed: true, value: o }];
+
+  const tokenize = (str: string) => str.split(/([ \n\t.,;:?!'"()[\]{}]+)/).filter(Boolean);
+  const tokens1 = tokenize(o);
+  const tokens2 = tokenize(n);
+  const len1 = tokens1.length, len2 = tokens2.length;
+  
+  if (len1 * len2 > 10000) return [{ removed: true, value: o }, { added: true, value: n }];
+  
+  const dp: number[][] = Array(len1 + 1).fill(0).map(() => Array(len2 + 1).fill(0));
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      if (tokens1[i - 1] === tokens2[j - 1]) dp[i][j] = dp[i - 1][j - 1] + 1;
+      else dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  
+  const track1: number[] = [], track2: number[] = [];
+  let i = len1, j = len2;
+  while (i > 0 && j > 0) {
+    if (tokens1[i - 1] === tokens2[j - 1]) { track1.push(i - 1); track2.push(j - 1); i--; j--; }
+    else if (dp[i - 1][j] > dp[i][j - 1]) i--;
+    else j--;
+  }
+  track1.reverse(); track2.reverse();
+  
+  const result: { value: string; added?: boolean; removed?: boolean }[] = [];
+  let i1 = 0, i2 = 0;
+  for (let k = 0; k < track1.length; k++) {
+    const t1 = track1[k], t2 = track2[k];
+    let remStr = ""; while (i1 < t1) remStr += tokens1[i1++];
+    if (remStr) result.push({ removed: true, value: remStr });
+    let addStr = ""; while (i2 < t2) addStr += tokens2[i2++];
+    if (addStr) result.push({ added: true, value: addStr });
+    result.push({ value: tokens1[t1] });
+    i1++; i2++;
+  }
+  
+  let endRem = ""; while (i1 < len1) endRem += tokens1[i1++];
+  if (endRem) result.push({ removed: true, value: endRem });
+  let endAdd = ""; while (i2 < len2) endAdd += tokens2[i2++];
+  if (endAdd) result.push({ added: true, value: endAdd });
+  
+  return result;
+}
+
 // ─── Atom components ──────────────────────────────────────────────────────────
 
 /** Neutral rounded-full pill — matches the reference design exactly */
@@ -321,28 +372,37 @@ const EventDetailDrawer: React.FC<{ eventId: string | null; onClose: () => void 
           )}
 
           {!loading && data && tab === "Diff" && (
-            <div>
+            <div className="space-y-4">
               {data.trail.length === 0 ? (
                 <p className="py-8 text-center text-sm text-gray-400">No field-level changes recorded</p>
               ) : (
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-100 text-left text-gray-400">
-                      <th className="pb-2 font-semibold">Field</th>
-                      <th className="pb-2 font-semibold">Before</th>
-                      <th className="pb-2 font-semibold">After</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.trail.map((t, i) => (
-                      <tr key={i} className="border-t border-gray-100">
-                        <td className="py-2 pr-3 font-medium text-gray-600">{t.field_name}</td>
-                        <td className="max-w-[140px] truncate py-2 text-red-500 line-through" title={t.field_before ?? ""}>{t.field_before ?? "—"}</td>
-                        <td className="max-w-[140px] truncate py-2 font-medium text-green-600" title={t.field_after ?? ""}>{t.field_after ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                data.trail.map((t, i) => {
+                  const diffChunks = computeWordDiff(t.field_before, t.field_after);
+                  
+                  return (
+                    <div key={i} className="rounded-md border border-gray-200 overflow-hidden shadow-sm">
+                      <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 text-xs font-semibold text-gray-700">
+                        {t.field_name}
+                      </div>
+                      <div className="bg-white p-3">
+                        <div className="rounded border border-gray-200 bg-gray-50 p-2.5 font-mono text-[11px] break-words whitespace-pre-wrap leading-relaxed shadow-sm">
+                          {diffChunks.map((chunk, idx) => (
+                            <span 
+                              key={idx} 
+                              className={
+                                chunk.added ? "bg-green-200 text-green-900 border border-green-300 rounded px-0.5 mx-[1px]" 
+                                : chunk.removed ? "bg-red-200 text-red-900 border border-red-300 rounded px-0.5 mx-[1px] line-through opacity-70" 
+                                : "text-gray-600"
+                              }
+                            >
+                              {chunk.value}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           )}
