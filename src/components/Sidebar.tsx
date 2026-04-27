@@ -54,6 +54,13 @@ const MENU_CONFIG: MenuItemConfig[] = [
     allowedRoles: ["super_admin", "kong_admin", "checker", "maker"],
   },
   {
+    id: "audit",
+    label: "Audit",
+    path: "/audit",
+    icon: ChartBarIcon,
+    allowedRoles: ["super_admin"],
+  },
+  {
     id: "api-migration",
     label: "API Migration",
     icon: ArrowsRightLeftIcon,

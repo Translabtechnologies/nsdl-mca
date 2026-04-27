@@ -13,6 +13,7 @@ import DpApprovalScreen from "./components/DpApprovalScreen";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminDashboard from "./components/AdminDashboard";
+import Audit from "./components/Audit";
 
 import Environments from "./components/ApiMigration/Environments";
 import Migration from "./components/ApiMigration/Migration";
@@ -62,7 +63,19 @@ function App() {
               }
             />
 
-            {/* 5. API Migration — super_admin, checker */}
+            {/* 5. Audit — super_admin, checker */}
+            <Route
+              path="/audit"
+              element={
+                <ProtectedRoute
+                  allowedRoles={["super_admin"]}
+                >
+                  <Audit />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 6. API Migration — super_admin, checker */}
             <Route
               path="/api-migration/environments"
               element={
