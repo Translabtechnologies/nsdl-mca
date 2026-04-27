@@ -21,6 +21,8 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const APPROVE_BASE = import.meta.env.VITE_API_BASE_URL;
 
+const getToken = () => sessionStorage.getItem("access_token");
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Subscription {
@@ -660,7 +662,10 @@ const OrgDetailView: React.FC<{
     try {
       const res = await fetch(`${APPROVE_BASE}/dp/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
+        },
         body: JSON.stringify({
           groupName: project.project_name,
           digiPluginsRequire: "true",
@@ -1534,7 +1539,10 @@ const OnboardingProgressView: React.FC<{
     try {
       const res = await fetch(`${APPROVE_BASE}/dp/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getToken()}`,
+        },
         body: JSON.stringify({
           groupName: project.project_name,
           digiPluginsRequire: "true",
@@ -1559,7 +1567,10 @@ const OnboardingProgressView: React.FC<{
     try {
       const res = await fetch(`${APPROVE_BASE}/dp/manual_approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getToken()}`,
+         },
         body: JSON.stringify({
           organisation_id: project.organisation_id,
           email: project.email_id,
