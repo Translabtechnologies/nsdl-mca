@@ -311,9 +311,9 @@ const EventDetailDrawer: React.FC<{ eventId: string | null; onClose: () => void 
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Actor</p>
                 <div className="flex items-start gap-3">
-                  <ActorAvatar name={ev.actor_name} id={ev.actor_id} />
+                  <ActorAvatar name={ev.actor_id} id={ev.actor_id} />
                   <div className="space-y-0.5 text-xs">
-                    <p className="font-semibold text-gray-800">{ev.actor_name || ev.actor_id || "—"}</p>
+                    <p className="font-semibold text-gray-800">{ev.actor_id || "—"}</p>
                     {ev.actor_email && <p className="text-gray-500">{ev.actor_email}</p>}
                     <div className="flex items-center gap-2 pt-0.5">
                       {ev.actor_role && <Pill>{ev.actor_role}</Pill>}
@@ -605,9 +605,9 @@ const OverviewTab: React.FC<{ onSelectEvent: (id: string) => void }> = ({ onSele
 
   const kpiCards = [
     { label: "Events in window", value: parseInt(kpi.total_events).toLocaleString(), sub: `${kpi.unique_actors} unique actors`, color: "text-gray-900" },
-    { label: "Failures",          value: parseInt(kpi.failures).toLocaleString(),       sub: `${kpi.failure_rate}% failures rate`, color: "text-red-500" },
-    { label: "Credential Access", value: parseInt(kpi.credential_access).toLocaleString(), sub: "Sensitive events",           color: "text-orange-500" },
-    { label: "Admin Actions",     value: parseInt(kpi.admin_actions).toLocaleString(),   sub: "super_admin / kong_admin",    color: "text-green-600" },
+    { label: "Failures",          value: parseInt(kpi.failures).toLocaleString(),       sub: `${kpi.failure_rate}% failures rate`, color: "text-red-600" },
+    { label: "Credential Access", value: parseInt(kpi.credential_access).toLocaleString(), sub: "Sensitive events",           color: "text-gray-900" },
+    { label: "Admin Actions",     value: parseInt(kpi.admin_actions).toLocaleString(),   sub: "super_admin / kong_admin",    color: "text-gray-900" },
   ];
 
   const lsTotal = live_stream.length;
@@ -678,7 +678,7 @@ const OverviewTab: React.FC<{ onSelectEvent: (id: string) => void }> = ({ onSele
                   </td>
                   <td className="px-4 py-3 align-middle">
                     <span className="font-semibold text-gray-800">
-                      {ev.actor_name || ev.actor_id || "—"}
+                      {ev.actor_id || "—"}
                     </span>
                   </td>
                   <td className="px-4 py-3 align-middle text-right relative">
@@ -807,7 +807,7 @@ const LogsTab: React.FC<{
 
                     {/* Actor */}
                     <td className="px-4 py-3">
-                      <p className="font-semibold text-gray-800">{log.actor_name || log.actor_id || "—"}</p>
+                      <p className="font-semibold text-gray-800">{log.actor_id || "—"}</p>
                       {log.actor_email && (
                         <p className="text-gray-400">{log.actor_email}</p>
                       )}
@@ -947,7 +947,7 @@ const TrailTab: React.FC<{ onSelectEvent: (id: string) => void; exportRef?: Reac
                 </span>
                 <span className="text-xs text-gray-400">{timeAgo(r.last_seen)}</span>
               </div>
-              <p className="truncate text-xs font-semibold text-gray-800">{r.actor_name || r.actor_id}</p>
+              <p className="truncate text-xs font-semibold text-gray-800">{r.actor_id}</p>
               <p className="truncate text-xs text-gray-500">{r.actor_email || r.actor_id}</p>
               <p className="mt-0.5 text-xs text-gray-400">{r.event_count} Events</p>
             </div>
@@ -965,10 +965,10 @@ const TrailTab: React.FC<{ onSelectEvent: (id: string) => void; exportRef?: Reac
           <div className="flex-shrink-0 border-b border-gray-200 px-6 py-4">
             <div className="flex items-center gap-3">
               <span className="text-base font-semibold text-gray-800">
-                {selectedActor.actor_email || selectedActor.actor_id}
+                {selectedActor.actor_id}
               </span>
               <span className="text-xs text-gray-400">
-                API : GET /api/audit/trail/{selectedActorId} &nbsp;|&nbsp; {timeline.length} Event
+                 {timeline.length} Event
               </span>
             </div>
           </div>
@@ -1014,7 +1014,7 @@ const TrailTab: React.FC<{ onSelectEvent: (id: string) => void; exportRef?: Reac
 
                 {/* Row 2: actor + details */}
                 <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-semibold text-gray-800">{ev.actor_name || ev.actor_id}</span>
+                  <span className="font-semibold text-gray-800">{ev.actor_id}</span>
                   {ev.actor_role && <span className="text-gray-500">{ev.actor_role}</span>}
                   {ev.ip_address && <span className="text-gray-400">{ev.ip_address}</span>}
                   {ev.http_method && <Pill>{ev.http_method}</Pill>}
