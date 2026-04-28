@@ -692,7 +692,10 @@ const OrgDetailView: React.FC<{
     try {
       const res = await fetch(`${APPROVE_BASE}/projects/${project.id}/reject`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json", 
+          "Authorization": `Bearer ${getToken()}`,
+        },
         body: JSON.stringify({ reason }),
       });
       const json = await res.json();
@@ -2485,7 +2488,12 @@ const DpApprovalScreen: React.FC = () => {
       params.append("order", sortOrder === "asc" ? "asc" : "desc");
 
       const url = `${API_BASE_URL}/projects?${params.toString()}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: {
+          'Content-Type': "application/json",
+          "Authorization": `Bearer ${getToken()}`,
+        }
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: ApiResponse = await res.json();
       setProjects(json.data || []);
